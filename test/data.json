@@ -1,0 +1,206 @@
+{
+  "context": {
+    "email": "herman@octarion.eu",
+    "id": 1,
+    "live_view.view": "Elixir.AdminWeb.DocumentsLive.Show",
+    "request.headers": {
+      "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      "accept-encoding": "gzip, deflate, br",
+      "accept-language": "nl-NL,nl;q=0.9",
+      "cache-control": "max-age=0",
+      "host": "admin.octarion.test",
+      "priority": "u=0, i",
+      "referer": "https://admin.octarion.test/document/930",
+      "sec-fetch-dest": "document",
+      "sec-fetch-mode": "navigate",
+      "sec-fetch-site": "same-origin",
+      "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.1.1 Safari/605.1.15",
+      "x-forwarded-for": "::1",
+      "x-forwarded-host": "admin.octarion.test",
+      "x-forwarded-proto": "https"
+    },
+    "request.host": "admin.octarion.test",
+    "request.ip": "::1",
+    "request.method": "GET",
+    "request.params": {
+      "id": "930"
+    },
+    "request.path": "/document/930",
+    "request.query": "",
+    "username": "herman"
+  },
+  "error": {
+    "fingerprint": "A5B3E7BF0E1AC9AF35A7C2160AFA7390E78BD3CC87E5BAC2D3557A5A63E9781B",
+    "kind": "Elixir.FunctionClauseError",
+    "last_occurrence_at": "2024-11-21T12:28:47.612377Z",
+    "reason": "no function clause matching in Date.convert/2",
+    "source_function": "Date.convert/2",
+    "source_line": "lib/calendar/date.ex:642",
+    "status": "unresolved"
+  },
+  "reason": "no function clause matching in Date.convert/2",
+  "stacktrace": {
+    "lines": [
+      {
+        "application": "elixir",
+        "arity": 2,
+        "file": "lib/calendar/date.ex",
+        "function": "convert",
+        "line": 642,
+        "module": "Date"
+      },
+      {
+        "application": "elixir",
+        "arity": 2,
+        "file": "lib/calendar/date.ex",
+        "function": "convert!",
+        "line": 676,
+        "module": "Date"
+      },
+      {
+        "application": "elixir",
+        "arity": 1,
+        "file": "lib/calendar/date.ex",
+        "function": "to_erl",
+        "line": 442,
+        "module": "Date"
+      },
+      {
+        "application": "admin",
+        "arity": 2,
+        "file": "lib/admin_web/live/documents_live/show.html.heex",
+        "function": "-render/1-fun-56-",
+        "line": 2,
+        "module": "AdminWeb.DocumentsLive.Show"
+      },
+      {
+        "application": "phoenix_live_view",
+        "arity": 7,
+        "file": "lib/phoenix_live_view/diff.ex",
+        "function": "traverse",
+        "line": 414,
+        "module": "Phoenix.LiveView.Diff"
+      },
+      {
+        "application": "phoenix_live_view",
+        "arity": 4,
+        "file": "lib/phoenix_live_view/diff.ex",
+        "function": "-traverse_dynamic/7-fun-0-",
+        "line": 555,
+        "module": "Phoenix.LiveView.Diff"
+      },
+      {
+        "application": "elixir",
+        "arity": 3,
+        "file": "lib/enum.ex",
+        "function": "-reduce/3-lists^foldl/2-0-",
+        "line": 2531,
+        "module": "Enum"
+      },
+      {
+        "application": "phoenix_live_view",
+        "arity": 7,
+        "file": "lib/phoenix_live_view/diff.ex",
+        "function": "traverse",
+        "line": 412,
+        "module": "Phoenix.LiveView.Diff"
+      },
+      {
+        "application": "phoenix_live_view",
+        "arity": 4,
+        "file": "lib/phoenix_live_view/diff.ex",
+        "function": "-traverse_dynamic/7-fun-0-",
+        "line": 555,
+        "module": "Phoenix.LiveView.Diff"
+      },
+      {
+        "application": "elixir",
+        "arity": 3,
+        "file": "lib/enum.ex",
+        "function": "-reduce/3-lists^foldl/2-0-",
+        "line": 2531,
+        "module": "Enum"
+      },
+      {
+        "application": "phoenix_live_view",
+        "arity": 7,
+        "file": "lib/phoenix_live_view/diff.ex",
+        "function": "traverse",
+        "line": 412,
+        "module": "Phoenix.LiveView.Diff"
+      },
+      {
+        "application": "phoenix_live_view",
+        "arity": 8,
+        "file": "lib/phoenix_live_view/diff.ex",
+        "function": "render_component",
+        "line": 782,
+        "module": "Phoenix.LiveView.Diff"
+      },
+      {
+        "application": "phoenix_live_view",
+        "arity": 5,
+        "file": "lib/phoenix_live_view/diff.ex",
+        "function": "zip_components",
+        "line": 720,
+        "module": "Phoenix.LiveView.Diff"
+      },
+      {
+        "application": "phoenix_live_view",
+        "arity": 4,
+        "file": "lib/phoenix_live_view/diff.ex",
+        "function": "-render_pending_components/6-fun-3-",
+        "line": 703,
+        "module": "Phoenix.LiveView.Diff"
+      },
+      {
+        "application": "stdlib",
+        "arity": 4,
+        "file": "maps.erl",
+        "function": "fold_1",
+        "line": 860,
+        "module": "maps"
+      },
+      {
+        "application": "phoenix_live_view",
+        "arity": 6,
+        "file": "lib/phoenix_live_view/diff.ex",
+        "function": "render_pending_components",
+        "line": 648,
+        "module": "Phoenix.LiveView.Diff"
+      },
+      {
+        "application": "phoenix_live_view",
+        "arity": 3,
+        "file": "lib/phoenix_live_view/diff.ex",
+        "function": "render",
+        "line": 143,
+        "module": "Phoenix.LiveView.Diff"
+      },
+      {
+        "application": "phoenix_live_view",
+        "arity": 4,
+        "file": "lib/phoenix_live_view/static.ex",
+        "function": "to_rendered_content_tag",
+        "line": 288,
+        "module": "Phoenix.LiveView.Static"
+      },
+      {
+        "application": "phoenix_live_view",
+        "arity": 4,
+        "file": "lib/phoenix_live_view/static.ex",
+        "function": "do_render",
+        "line": 171,
+        "module": "Phoenix.LiveView.Static"
+      },
+      {
+        "application": "phoenix_live_view",
+        "arity": 3,
+        "file": "lib/phoenix_live_view/controller.ex",
+        "function": "live_render",
+        "line": 39,
+        "module": "Phoenix.LiveView.Controller"
+      }
+    ]
+  }
+}
