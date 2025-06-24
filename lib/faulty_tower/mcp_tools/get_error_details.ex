@@ -85,17 +85,20 @@ defmodule FaultyTower.MCPTools.GetErrorDetails do
     conn.assigns[:current_user]
   end
 
-  defp format_stacktrace_for_ai(stacktrace_entries) do
-    Enum.map(stacktrace_entries || [], fn entry ->
+  defp format_stacktrace_for_ai(%Schema.Stacktrace{lines: lines}) do
+    Enum.map(lines || [], fn entry ->
       %{
         "file" => entry.file,
         "function" => entry.function,
         "line" => entry.line,
         "module" => entry.module,
-        "arity" => entry.arity
+        "arity" => entry.arity,
+        "application" => entry.application
       }
     end)
   end
+
+  defp format_stacktrace_for_ai(nil), do: []
 
   defp generate_ai_prompt(error, occurrence) when not is_nil(occurrence) do
     """
@@ -120,11 +123,13 @@ defmodule FaultyTower.MCPTools.GetErrorDetails do
 
   defp generate_ai_prompt(_error, nil), do: "No occurrence data available for analysis."
 
-  defp format_stacktrace_text(stacktrace_entries) do
-    stacktrace_entries
+  defp format_stacktrace_text(%Schema.Stacktrace{lines: lines}) do
+    lines
     |> Enum.map(fn entry ->
       "  #{entry.module}.#{entry.function}/#{entry.arity} (#{entry.file}:#{entry.line})"
     end)
     |> Enum.join("\n")
   end
+
+  defp format_stacktrace_text(nil), do: "No stacktrace available"
 end
