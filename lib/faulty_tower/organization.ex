@@ -41,4 +41,10 @@ defmodule FaultyTower.Organization do
     |> validate_required([:name])
     |> unique_constraint(:name)
   end
+
+  def list_user_organizations(user) do
+    user
+    |> Repo.preload(:organizations)
+    |> Map.get(:organizations, [])
+  end
 end

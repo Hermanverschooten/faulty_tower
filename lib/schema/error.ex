@@ -15,6 +15,7 @@ defmodule Schema.Error do
     field :fingerprint, :binary
     field :last_occurrence_at, :utc_datetime_usec
     field :count, :integer, virtual: true
+    field :occurrence_count, :integer, virtual: true
     field :gh_issue, :integer
 
     belongs_to :project, Schema.Project

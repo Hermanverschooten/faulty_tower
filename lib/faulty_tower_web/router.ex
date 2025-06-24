@@ -18,6 +18,12 @@ defmodule FaultyTowerWeb.Router do
     plug :accepts, ["json"]
   end
 
+  pipeline :mcp do
+    plug :accepts, ["json"]
+    plug :fetch_session
+    plug FaultyTowerWeb.Plugs.MCPAuth
+  end
+
   scope "/api", FaultyTowerWeb do
     pipe_through :api
 
@@ -82,5 +88,23 @@ defmodule FaultyTowerWeb.Router do
       live "/users/confirm/:token", UserConfirmationLive, :edit
       live "/users/confirm", UserConfirmationInstructionsLive, :new
     end
+  end
+
+  scope "/mcp" do
+    pipe_through :mcp
+
+    alias FaultyTower.MCPTools
+
+    forward "/", Vancouver.Router,
+      tools: [
+        MCPTools.ListOrganizations,
+        MCPTools.ListProjects,
+        MCPTools.ListErrors,
+        MCPTools.SearchErrors,
+        MCPTools.GetErrorDetails,
+        MCPTools.ResolveError,
+        MCPTools.ReopenError,
+        MCPTools.CreateGithubIssue
+      ]
   end
 end

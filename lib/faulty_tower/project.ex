@@ -98,4 +98,42 @@ defmodule FaultyTower.Project do
         end
     end
   end
+
+  def list_user_projects(user) do
+    from(
+      p in Schema.Project,
+      join: o in assoc(p, :organization),
+      join: uo in "users_organizations",
+      on: uo.organization_id == o.id,
+      where: uo.user_id == ^user.id,
+      preload: [:organization, :unresolved_errors]
+    )
+    |> Repo.all()
+  end
+
+  def list_organization_projects(user, organization_id) do
+    from(
+      p in Schema.Project,
+      join: o in assoc(p, :organization),
+      join: uo in "users_organizations",
+      on: uo.organization_id == o.id,
+      where: uo.user_id == ^user.id and p.organization_id == ^organization_id,
+      preload: [:organization, :unresolved_errors]
+    )
+    |> Repo.all()
+  end
+
+  def get_user_project(user, project_id) do
+    query =
+      from p in Schema.Project,
+        join: o in assoc(p, :organization),
+        join: uo in "users_organizations",
+        on: uo.organization_id == o.id,
+        where: uo.user_id == ^user.id and p.id == ^project_id
+
+    case Repo.one(query) do
+      nil -> {:error, :not_found}
+      project -> {:ok, project}
+    end
+  end
 end

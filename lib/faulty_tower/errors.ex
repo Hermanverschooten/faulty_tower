@@ -81,6 +81,71 @@ defmodule FaultyTower.Errors do
     end
   end
 
+  def list_project_errors(project, status \\ "unresolved", limit \\ 20) do
+    query =
+      from e in Schema.Error,
+        where: e.project_id == ^project.id,
+        join: cq in subquery(count_query()),
+        on: cq.error_id == e.id,
+        select_merge: %{occurrence_count: cq.count},
+        limit: ^limit,
+        order_by: [desc: e.last_occurrence_at],
+        preload: [:occurrences]
+
+    query =
+      case status do
+        "resolved" -> where(query, [e], e.status == :resolved)
+        "all" -> query
+        _ -> where(query, [e], e.status == :unresolved)
+      end
+
+    Repo.all(query)
+  end
+
+  def get_user_error(user, error_id) do
+    query =
+      from e in Schema.Error,
+        join: p in Schema.Project,
+        on: e.project_id == p.id,
+        join: o in assoc(p, :organization),
+        join: uo in "users_organizations",
+        on: uo.organization_id == o.id,
+        where: uo.user_id == ^user.id and e.id == ^error_id,
+        preload: [:project]
+
+    case Repo.one(query) do
+      nil -> {:error, :not_found}
+      error -> {:ok, error}
+    end
+  end
+
+  def resolve_error(error) do
+    error
+    |> Schema.Error.changeset(%{
+      status: :resolved
+    })
+    |> Repo.update()
+  end
+
+  def reopen_error(error) do
+    error
+    |> Schema.Error.changeset(%{
+      status: :unresolved
+    })
+    |> Repo.update()
+  end
+
+  def update_github_issue(error, issue_url) do
+    from(e in Schema.Error,
+      where: e.id == ^error.id
+    )
+    |> Repo.update_all(set: [gh_issue: issue_url, updated_at: DateTime.utc_now()])
+    |> case do
+      {1, _} -> {:ok, %{error | gh_issue: issue_url}}
+      _ -> {:error, :update_failed}
+    end
+  end
+
   defp count_query do
     from(o in Schema.Occurrence,
       group_by: o.error_id,

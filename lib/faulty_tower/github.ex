@@ -118,4 +118,31 @@ defmodule FaultyTower.Github do
   def issues_repo(%{github: nil}), do: nil
   def issues_repo(%{github: %{issue_repo: nil, repo: repo}}), do: repo
   def issues_repo(%{github: %{issue_repo: repo}}), do: repo
+
+  def create_issue(project, title, body) do
+    repo = issues_repo(project)
+
+    with {:ok, %{"token" => token}} <- Request.authenticate(repo) do
+      case Req.post("https://api.github.com/repos/#{repo}/issues",
+             headers: %{
+               "accept" => "application/vnd.github+json",
+               "authorization" => "Bearer #{token}",
+               "X-GitHub-Api-version" => "2022-11-28"
+             },
+             json: %{
+               title: String.slice(title, 0, 256),
+               body: body
+             }
+           ) do
+        {:ok, %{status: 201, body: %{"html_url" => url, "number" => _number}}} ->
+          {:ok, url}
+
+        {:ok, response} ->
+          {:error, {:github_api_error, response}}
+
+        {:error, reason} ->
+          {:error, reason}
+      end
+    end
+  end
 end

@@ -7,7 +7,7 @@ defmodule FaultyTowerWeb.UserSettingsLive do
     ~H"""
     <.header class="text-center">
       Account Settings
-      <:subtitle>Manage your account email address and password settings</:subtitle>
+      <:subtitle>Manage your account email address, password, and MCP access</:subtitle>
     </.header>
 
     <div class="space-y-12 divide-y">
@@ -69,6 +69,37 @@ defmodule FaultyTowerWeb.UserSettingsLive do
           </:actions>
         </.simple_form>
       </div>
+
+      <div class="pt-6">
+        <h3 class="text-base font-semibold leading-7 text-gray-900">MCP Server Access</h3>
+        <p class="mt-1 text-sm leading-6 text-gray-600">
+          Use this token to authenticate with the FaultyTower MCP server for AI assistants.
+        </p>
+        <div class="mt-4">
+          <div class="flex items-center space-x-2">
+            <input
+              id="session-token-input"
+              type="text"
+              value={@session_token}
+              readonly
+              class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6 font-mono"
+            />
+            <button
+              type="button"
+              phx-click={
+                JS.dispatch("phx:copy", to: "#session-token-input")
+                |> JS.dispatch("phx:copied", to: "#session-token-input")
+              }
+              class="rounded-md bg-white px-2.5 py-1.5 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
+            >
+              Copy
+            </button>
+          </div>
+          <p class="mt-2 text-sm text-gray-500">
+            Keep this token secure. It provides full access to your FaultyTower account via the MCP API.
+          </p>
+        </div>
+      </div>
     </div>
     """
   end
@@ -86,7 +117,7 @@ defmodule FaultyTowerWeb.UserSettingsLive do
     {:ok, push_navigate(socket, to: ~p"/users/settings")}
   end
 
-  def mount(_params, _session, socket) do
+  def mount(_params, %{"user_token" => user_token} = _session, socket) do
     user = socket.assigns.current_user
     email_changeset = Authentication.change_user_email(user)
     password_changeset = Authentication.change_user_password(user)
@@ -99,6 +130,7 @@ defmodule FaultyTowerWeb.UserSettingsLive do
       |> assign(:email_form, to_form(email_changeset))
       |> assign(:password_form, to_form(password_changeset))
       |> assign(:trigger_submit, false)
+      |> assign(:session_token, Base.encode64(user_token))
 
     {:ok, socket}
   end

@@ -61,6 +61,16 @@ config :logger, :console,
 # Use Jason for JSON parsing in Phoenix
 config :phoenix, :json_library, Jason
 
+# Register MIME types for MCP Server-Sent Events
+config :mime, :types, %{
+  "text/event-stream" => ["event-stream"]
+}
+
+# Vancouver MCP configuration
+config :vancouver,
+  name: "FaultyTower MCP Server",
+  version: "1.0.0"
+
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.
 import_config "#{config_env()}.exs"
