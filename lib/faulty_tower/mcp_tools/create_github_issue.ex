@@ -74,7 +74,7 @@ defmodule FaultyTower.MCPTools.CreateGithubIssue do
   end
 
   defp validate_github_configured(project) do
-    if project.github && project.github["repo"] do
+    if project.github && project.github.repo do
       {:ok, project}
     else
       {:error, :github_not_configured}
