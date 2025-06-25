@@ -47,7 +47,7 @@ defmodule FaultyTower.Recorder do
 
   def notify(error) do
     error =
-      Repo.preload(error, [:occurrences, project: :users])
+      Repo.preload(error, [:occurrences, project: :users], in_parallel: false)
 
     occurrences =
       error.occurrences
