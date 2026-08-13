@@ -57,7 +57,7 @@ defmodule FaultyTower.MixProject do
       {:finch, "~> 0.13"},
       {:telemetry_metrics, "~> 1.0"},
       {:telemetry_poller, "~> 1.0"},
-      {:gettext, "~> 0.20"},
+      {:gettext, "~> 1.0"},
       {:jason, "~> 1.2"},
       {:dns_cluster, "~> 0.1"},
       {:bandit, "~> 1.5"},
@@ -65,7 +65,7 @@ defmodule FaultyTower.MixProject do
       {:phx_2_ban, "~> 0.1", repo: "ezsuite"},
       {:joken, "~> 2.6"},
       {:vancouver, "~> 0.3"},
-      {:mimic, "~> 1.7", only: :test}
+      {:mimic, "~> 2.0", only: :test}
     ]
   end
 
