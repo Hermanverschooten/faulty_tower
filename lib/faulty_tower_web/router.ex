@@ -60,7 +60,6 @@ defmodule FaultyTowerWeb.Router do
     live_session :require_authenticated_user,
       on_mount: [{FaultyTowerWeb.UserAuth, :ensure_authenticated}] do
       live "/", DashboardLive
-      live "/projects", ProjectLive.Index
       live "/project/:organization_id/new", ProjectLive.New
       live "/project/:project/edit", ProjectLive.Edit
       live "/project/:project", ErrorsLive
