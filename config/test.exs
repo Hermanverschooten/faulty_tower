@@ -12,7 +12,7 @@ config :faulty_tower, FaultyTower.Repo,
   username: "postgres",
   password: "postgres",
   hostname: "localhost",
-  database: "faulty_tower_test#{System.get_env("MIX_TEST_PARTITION")}",
+  database: "public_faulty_tower_test#{System.get_env("MIX_TEST_PARTITION")}",
   pool: Ecto.Adapters.SQL.Sandbox,
   pool_size: System.schedulers_online() * 2
 
