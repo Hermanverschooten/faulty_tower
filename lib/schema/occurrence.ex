@@ -5,8 +5,6 @@ defmodule Schema.Occurrence do
 
   use Ecto.Schema
 
-  require Logger
-
   @type t :: %__MODULE__{}
 
   schema "occurrences" do
