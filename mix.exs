@@ -59,7 +59,6 @@ defmodule FaultyTower.MixProject do
       {:telemetry_poller, "~> 1.0"},
       {:gettext, "~> 1.0"},
       {:jason, "~> 1.2"},
-      {:dns_cluster, "~> 0.1"},
       {:bandit, "~> 1.5"},
       {:site_encrypt, "~> 0.7"},
       {:phx_2_ban, "~> 0.1", repo: "ezsuite"},

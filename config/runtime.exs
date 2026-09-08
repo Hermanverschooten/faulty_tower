@@ -31,7 +31,6 @@ if config_env() == :prod do
 
   config :faulty_tower, :domains, [host]
   config :faulty_tower, :emails, ["me@example.org"]
-  config :faulty_tower, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")
 
   config :faulty_tower, FaultyTowerWeb.Endpoint,
     url: [host: host, port: 443, scheme: "https"],
