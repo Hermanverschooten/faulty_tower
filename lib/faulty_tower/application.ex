@@ -10,7 +10,6 @@ defmodule FaultyTower.Application do
     children = [
       FaultyTowerWeb.Telemetry,
       FaultyTower.Repo,
-      {DNSCluster, query: Application.get_env(:faulty_tower, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: FaultyTower.PubSub},
       # Run the migrations
       {Task, &migrate/0},
