@@ -3,6 +3,8 @@ defmodule FaultyTowerWeb.ProjectLive.New do
   alias FaultyTower.Organization
   use FaultyTowerWeb, :live_view
 
+  on_mount {FaultyTowerWeb.UserAuth, :ensure_admin}
+
   def mount(%{"organization_id" => org_id}, __session, socket) do
     socket =
       with {:ok, organization} <- Organization.fetch(org_id) do
@@ -18,27 +20,26 @@ defmodule FaultyTowerWeb.ProjectLive.New do
 
   def render(assigns) do
     ~H"""
-    <h1 class="text-2xl font-semibold">{@organization.name} - Add new project</h1>
-    <.simple_form
-      for={@form}
-      id="new-project-form"
-      phx-change="validate"
-      phx-submit="create"
-      class="mt-8"
-    >
-      <.input type="text" field={@form[:name]} label="Project name" required data-1p-ignore />
-      <.input
-        type="text"
-        field={@form[:otp_app]}
-        label="OTP application name"
-        required
-        data-1p-ignore
-      />
-      <.button type="submit">Create project</.button>
-      <.link navigate={~p"/organizations"} class="ml-4 hover:underline">
-        <button type="button">Cancel</button>
-      </.link>
-    </.simple_form>
+    <div class="text-sm text-zinc-500">{@organization.name}</div>
+    <h1 class="mt-1 mb-6 text-2xl font-semibold text-balance">New project</h1>
+    <.sheet>
+      <.simple_form for={@form} id="new-project-form" phx-change="validate" phx-submit="create">
+        <.input type="text" field={@form[:name]} label="Project name" required data-1p-ignore />
+        <.input
+          type="text"
+          field={@form[:otp_app]}
+          label="OTP application name"
+          required
+          data-1p-ignore
+        />
+        <div class="flex items-center gap-4 pt-1">
+          <.button type="submit">Create project</.button>
+          <.link navigate={~p"/organizations"} class="text-sm text-zinc-500 hover:text-zinc-900">
+            Cancel
+          </.link>
+        </div>
+      </.simple_form>
+    </.sheet>
     """
   end
 

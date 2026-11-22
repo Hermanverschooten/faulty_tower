@@ -9,8 +9,9 @@ defmodule Schema.Project do
     field :key, Ecto.UUID
     field :otp_app, :string
     field :ntfy, :string
+    field :git_provider, :string
 
-    embeds_one :github, GitHub, primary_key: false, on_replace: :update do
+    embeds_one :repository, Repository, primary_key: false, on_replace: :update do
       @type t :: %__MODULE__{}
       field :repo, :string
       field :branch, :string, default: "main"

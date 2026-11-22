@@ -25,6 +25,18 @@ defmodule FaultyTower.Project do
     end
   end
 
+  @doc "Admins, and members of the project's organization, may edit it."
+  def editable_by?(_project, %{admin: true}), do: true
+
+  def editable_by?(project, user) do
+    Repo.exists?(
+      from(u in FaultyTower.Authentication.User,
+        join: o in assoc(u, :organizations),
+        where: u.id == ^user.id and o.id == ^project.organization_id
+      )
+    )
+  end
+
   def fetch(project_id, preloads \\ []) do
     case Repo.get(Schema.Project, project_id) do
       nil -> {:error, :not_found}
@@ -62,41 +74,15 @@ defmodule FaultyTower.Project do
 
   def changeset(schema, attrs) do
     schema
-    |> cast(attrs, [:name, :key, :organization_id, :otp_app, :ntfy])
-    |> cast_embed(:github, with: &gh_changeset/2)
+    |> cast(attrs, [:name, :key, :organization_id, :otp_app, :ntfy, :git_provider])
+    |> cast_embed(:repository, with: &repository_changeset/2)
     |> validate_required([:name, :key, :organization_id, :otp_app])
     |> unique_constraint(:key)
   end
 
-  def gh_changeset(schema, attrs) do
+  def repository_changeset(schema, attrs) do
     schema
     |> cast(attrs, [:repo, :branch, :issue_repo])
-  end
-
-  @doc """
-  Compare 2 projects so that the one with the most unresolved_errors comes first.
-  """
-  def compare(p1, p2) do
-    lp1 = length(p1.unresolved_errors)
-    lp2 = length(p2.unresolved_errors)
-
-    cond do
-      lp1 > lp2 ->
-        :lt
-
-      lp1 < lp2 ->
-        :gt
-
-      true ->
-        name1 = String.downcase(p1.name)
-        name2 = String.downcase(p2.name)
-
-        cond do
-          name1 > name2 -> :gt
-          name1 < name2 -> :lt
-          true -> :eq
-        end
-    end
   end
 
   def list_user_projects(user) do
@@ -123,13 +109,13 @@ defmodule FaultyTower.Project do
     |> Repo.all()
   end
 
-  def get_user_project(user, project_id) do
+  def get_user_project(user, project_key) when is_binary(project_key) do
     query =
       from p in Schema.Project,
         join: o in assoc(p, :organization),
         join: uo in "users_organizations",
         on: uo.organization_id == o.id,
-        where: uo.user_id == ^user.id and p.id == ^project_id
+        where: uo.user_id == ^user.id and p.key == ^project_key
 
     case Repo.one(query) do
       nil -> {:error, :not_found}

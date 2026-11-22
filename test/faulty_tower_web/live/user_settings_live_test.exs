@@ -16,6 +16,32 @@ defmodule FaultyTowerWeb.UserSettingsLiveTest do
       assert html =~ "Change Password"
     end
 
+    test "renders the three section headings and the user's email", %{conn: conn} do
+      user = user_fixture()
+      {:ok, lv, _html} = conn |> log_in_user(user) |> live(~p"/users/settings")
+
+      for h <- ["Email", "Password", "MCP token"] do
+        assert has_element?(lv, "h2", h)
+      end
+
+      assert has_element?(lv, "h1", "Account settings")
+      assert render(lv) =~ user.email
+    end
+
+    test "MCP Copy and Regenerate buttons exist and Regenerate changes the token", %{conn: conn} do
+      user = user_fixture()
+      {:ok, lv, _html} = conn |> log_in_user(user) |> live(~p"/users/settings")
+
+      assert has_element?(lv, "button", "Copy")
+      assert has_element?(lv, "button[data-confirm]", "Regenerate")
+      assert has_element?(lv, "#mcp-token-input[value='#{user.mcp_token}']")
+
+      lv |> element("button", "Regenerate") |> render_click()
+
+      refute has_element?(lv, "#mcp-token-input[value='#{user.mcp_token}']")
+      assert render(lv) =~ "MCP token regenerated successfully."
+    end
+
     test "redirects if user is not logged in", %{conn: conn} do
       assert {:error, redirect} = live(conn, ~p"/users/settings")
 
@@ -210,5 +236,11 @@ defmodule FaultyTowerWeb.UserSettingsLiveTest do
       assert %{"error" => message} = flash
       assert message == "You must log in to access this page."
     end
+  end
+
+  test "the MCP token input has a visible label above it", %{conn: conn} do
+    {:ok, view, _} = conn |> log_in_user(user_fixture()) |> live(~p"/users/settings")
+    assert has_element?(view, ~s(label[for="mcp-token-input"]), "Token")
+    assert has_element?(view, "input#mcp-token-input")
   end
 end

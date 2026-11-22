@@ -43,14 +43,13 @@ config :esbuild,
 
 # Configure tailwind (the version is required)
 config :tailwind,
-  version: "3.4.17",
+  version: "4.3.3",
   faulty_tower: [
     args: ~w(
-      --config=tailwind.config.js
-      --input=css/app.css
-      --output=../priv/static/assets/app.css
+      --input=assets/css/app.css
+      --output=priv/static/assets/app.css
     ),
-    cd: Path.expand("../assets", __DIR__)
+    cd: Path.expand("..", __DIR__)
   ]
 
 # Configures Elixir's Logger
@@ -63,7 +62,8 @@ config :phoenix, :json_library, Jason
 
 # Register MIME types for MCP Server-Sent Events
 config :mime, :types, %{
-  "text/event-stream" => ["event-stream"]
+  "text/event-stream" => ["event-stream"],
+  "application/manifest+json" => ["webmanifest"]
 }
 
 # Vancouver MCP configuration

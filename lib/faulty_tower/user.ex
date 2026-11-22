@@ -9,6 +9,7 @@ defmodule FaultyTower.User do
   """
   def list(preload \\ []) do
     FaultyTower.Authentication.User
+    |> order_by([u], asc: u.email)
     |> Repo.all()
     |> Repo.preload(preload)
   end
@@ -31,6 +32,7 @@ defmodule FaultyTower.User do
     |> cast(attrs, [:email, :admin])
     |> put_assoc(:organizations, organizations)
     |> validate_required([:email])
+    |> unique_constraint(:email)
     |> Repo.update()
   end
 
@@ -38,12 +40,15 @@ defmodule FaultyTower.User do
     organization_ids = Map.get(attrs, "organizations", [])
     organizations = Repo.all(Organization |> where([o], o.id in ^organization_ids))
     password = Ecto.UUID.generate()
+    mcp_token = Base.encode64(:crypto.strong_rand_bytes(32))
 
     %FaultyTower.Authentication.User{}
     |> cast(attrs, [:email, :admin])
     |> put_change(:hashed_password, Argon2.hash_pwd_salt(password))
+    |> put_change(:mcp_token, mcp_token)
     |> put_assoc(:organizations, organizations)
     |> validate_required([:email])
+    |> unique_constraint(:email)
     |> Repo.insert()
   end
 

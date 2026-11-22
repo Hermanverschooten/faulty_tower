@@ -29,7 +29,7 @@ defmodule FaultyTowerWeb.UserResetPasswordLiveTest do
 
       assert to == %{
                flash: %{"error" => "Reset password link is invalid or it has expired."},
-               to: ~p"/"
+               to: ~p"/users/log_in"
              }
     end
 
@@ -93,7 +93,7 @@ defmodule FaultyTowerWeb.UserResetPasswordLiveTest do
 
       {:ok, conn} =
         lv
-        |> element(~s|main a[href="/users/log_in"]|)
+        |> element("main a", "Log in")
         |> render_click()
         |> follow_redirect(conn, ~p"/users/log_in")
 

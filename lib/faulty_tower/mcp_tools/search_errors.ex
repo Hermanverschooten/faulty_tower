@@ -91,9 +91,8 @@ defmodule FaultyTower.MCPTools.SearchErrors do
             "first_occurrence" => error.inserted_at,
             "last_occurrence" => error.last_occurrence_at,
             "project" => %{
-              "id" => error.project_id,
+              "project_id" => error.project_key,
               "name" => error.project_name,
-              "key" => error.project_key,
               "organization" => error.organization_name
             }
           }

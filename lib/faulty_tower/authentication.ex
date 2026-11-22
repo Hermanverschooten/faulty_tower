@@ -75,8 +75,11 @@ defmodule FaultyTower.Authentication do
 
   """
   def register_user(attrs) do
+    mcp_token = Base.encode64(:crypto.strong_rand_bytes(32))
+
     %User{}
     |> User.registration_changeset(attrs)
+    |> Ecto.Changeset.put_change(:mcp_token, mcp_token)
     |> Repo.insert()
   end
 
@@ -242,6 +245,36 @@ defmodule FaultyTower.Authentication do
     :ok
   end
 
+  ## MCP Token
+
+  @doc """
+  Generates a new MCP token for the user.
+  This token is persistent and stored in the database.
+  """
+  def generate_mcp_token(user) do
+    token = Base.encode64(:crypto.strong_rand_bytes(32))
+
+    user
+    |> Ecto.Changeset.change(mcp_token: token)
+    |> Repo.update!()
+  end
+
+  @doc """
+  Regenerates the MCP token for the user.
+  """
+  def regenerate_mcp_token(user) do
+    generate_mcp_token(user)
+  end
+
+  @doc """
+  Gets the user with the given MCP token.
+  """
+  def get_user_by_mcp_token(token) when is_binary(token) do
+    Repo.get_by(User, mcp_token: token)
+  end
+
+  def get_user_by_mcp_token(_), do: nil
+
   ## Confirmation
 
   @doc ~S"""
@@ -308,6 +341,16 @@ defmodule FaultyTower.Authentication do
   end
 
   @doc """
+  Delivers a welcome email with password setup instructions to a new user.
+  """
+  def deliver_user_welcome_instructions(%User{} = user, reset_password_url_fun)
+      when is_function(reset_password_url_fun, 1) do
+    {encoded_token, user_token} = UserToken.build_email_token(user, "reset_password")
+    Repo.insert!(user_token)
+    UserNotifier.deliver_welcome_instructions(user, reset_password_url_fun.(encoded_token))
+  end
+
+  @doc """
   Gets the user by reset password token.
 
   ## Examples
@@ -321,6 +364,18 @@ defmodule FaultyTower.Authentication do
   """
   def get_user_by_reset_password_token(token) do
     with {:ok, query} <- UserToken.verify_email_token_query(token, "reset_password"),
+         %User{} = user <- Repo.one(query) do
+      user
+    else
+      _ -> nil
+    end
+  end
+
+  @doc """
+  Gets the user by account confirmation token, or nil if the token is invalid or expired.
+  """
+  def get_user_by_confirmation_token(token) do
+    with {:ok, query} <- UserToken.verify_email_token_query(token, "confirm"),
          %User{} = user <- Repo.one(query) do
       user
     else

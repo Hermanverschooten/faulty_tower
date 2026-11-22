@@ -177,6 +177,25 @@ defmodule FaultyTowerWeb.CoreComponents do
   end
 
   @doc """
+  A narrow white sheet that holds a form. Set `centered` to centre it in the column.
+  """
+  attr :centered, :boolean, default: false
+  attr :class, :string, default: nil
+  slot :inner_block, required: true
+
+  def sheet(assigns) do
+    ~H"""
+    <div class={[
+      "w-full max-w-lg rounded-md border border-gray-200 bg-white p-6 text-balance",
+      @centered && "mx-auto",
+      @class
+    ]}>
+      {render_slot(@inner_block)}
+    </div>
+    """
+  end
+
+  @doc """
   Renders a simple form.
 
   ## Examples
@@ -202,9 +221,13 @@ defmodule FaultyTowerWeb.CoreComponents do
   def simple_form(assigns) do
     ~H"""
     <.form :let={f} for={@for} as={@as} {@rest}>
-      <div class="mt-10 space-y-8 bg-white">
+      <div class="space-y-5">
         {render_slot(@inner_block, f)}
-        <div :for={action <- @actions} class="mt-2 flex items-center justify-between gap-6">
+        <div
+          :for={{action, index} <- Enum.with_index(@actions)}
+          :key={index}
+          class="flex flex-wrap items-center justify-between gap-x-6 gap-y-3"
+        >
           {render_slot(action, f)}
         </div>
       </div>
@@ -219,8 +242,11 @@ defmodule FaultyTowerWeb.CoreComponents do
 
       <.button>Send!</.button>
       <.button phx-click="go" class="ml-2">Send!</.button>
+
+  `variant` picks the colours: "primary" (default) or "danger".
   """
   attr :type, :string, default: nil
+  attr :variant, :string, default: "primary", values: ~w(primary danger)
   attr :class, :string, default: nil
   attr :rest, :global, include: ~w(disabled form name value)
 
@@ -231,8 +257,9 @@ defmodule FaultyTowerWeb.CoreComponents do
     <button
       type={@type}
       class={[
-        "phx-submit-loading:opacity-75 rounded-lg bg-zinc-900 hover:bg-zinc-700 py-2 px-3",
-        "text-sm font-semibold leading-6 text-white active:text-white/80",
+        "phx-submit-loading:opacity-75 rounded-md py-2 px-3 text-sm font-medium text-white",
+        @variant == "primary" && "bg-zinc-900 hover:bg-zinc-700",
+        @variant == "danger" && "bg-red-700 hover:bg-red-400",
         @class
       ]}
       {@rest}
@@ -311,7 +338,7 @@ defmodule FaultyTowerWeb.CoreComponents do
 
     ~H"""
     <div>
-      <label class="flex items-center gap-4 text-sm leading-6 text-zinc-600">
+      <label class="flex items-center gap-2 text-sm text-zinc-600 whitespace-nowrap">
         <input type="hidden" name={@name} value="false" disabled={@rest[:disabled]} />
         <input
           type="checkbox"
@@ -319,12 +346,12 @@ defmodule FaultyTowerWeb.CoreComponents do
           name={@name}
           value="true"
           checked={@checked}
-          class="rounded border-zinc-300 text-zinc-900 focus:ring-0"
+          class="rounded-sm border-zinc-300 text-zinc-900 focus:ring-0 focus:ring-offset-0"
           {@rest}
         />
         {@label}
       </label>
-      <.error :for={msg <- @errors}>{msg}</.error>
+      <.error :for={{msg, index} <- Enum.with_index(@errors)} :key={index}>{msg}</.error>
     </div>
     """
   end
@@ -336,14 +363,14 @@ defmodule FaultyTowerWeb.CoreComponents do
       <select
         id={@id}
         name={@name}
-        class="mt-2 block w-full rounded-md border border-gray-300 bg-white shadow-sm focus:border-zinc-400 focus:ring-0 sm:text-sm"
+        class={input_class()}
         multiple={@multiple}
         {@rest}
       >
         <option :if={@prompt} value="">{@prompt}</option>
         {Phoenix.HTML.Form.options_for_select(@options, @value)}
       </select>
-      <.error :for={msg <- @errors}>{msg}</.error>
+      <.error :for={{msg, index} <- Enum.with_index(@errors)} :key={index}>{msg}</.error>
     </div>
     """
   end
@@ -354,26 +381,27 @@ defmodule FaultyTowerWeb.CoreComponents do
     ~H"""
     <div phx-feedback-for={@name} class="text-sm">
       <.label for={@id}>{@label}</.label>
-      <div class="mt-1 w-full pl-3 pr-10 py-2 text-left cursor-default focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
-        <div class="grid grid-cols-1 gap-1 text-sm items-baseline">
-          <input :if={@checkgroup_empty} type="hidden" name={@name} value="" />
-          <div :for={{label, value} <- @options} class="flex items-center">
-            <label for={"#{@name}-#{value}"} class="font-medium text-gray-700">
-              <input
-                type="checkbox"
-                id={"#{@name}-#{value}"}
-                name={@name}
-                value={value}
-                checked={to_string(value) in @selected}
-                class="mr-2 h-4 w-4  border-gray-300 text-indigo-600 focus:ring-indigo-500 transition duration-150 ease-in-out"
-                {@rest}
-              />
-              {label}
-            </label>
-          </div>
-        </div>
+      <div class="mt-1 grid grid-cols-1 gap-1">
+        <input :if={@checkgroup_empty} type="hidden" name={@name} value="" />
+        <label
+          :for={{label, value} <- @options}
+          :key={value}
+          for={"#{@name}-#{value}"}
+          class="flex items-center gap-2 text-sm text-zinc-600"
+        >
+          <input
+            type="checkbox"
+            id={"#{@name}-#{value}"}
+            name={@name}
+            value={value}
+            checked={to_string(value) in @selected}
+            class="appearance-auto accent-zinc-900"
+            {@rest}
+          />
+          {label}
+        </label>
       </div>
-      <.error :for={msg <- @errors}>{msg}</.error>
+      <.error :for={{msg, index} <- Enum.with_index(@errors)} :key={index}>{msg}</.error>
     </div>
     """
   end
@@ -385,14 +413,10 @@ defmodule FaultyTowerWeb.CoreComponents do
       <textarea
         id={@id}
         name={@name}
-        class={[
-          "mt-2 block w-full rounded-lg text-zinc-900 focus:ring-0 sm:text-sm sm:leading-6 min-h-[6rem]",
-          @errors == [] && "border-zinc-300 focus:border-zinc-400",
-          @errors != [] && "border-rose-400 focus:border-rose-400"
-        ]}
+        class={[input_class(@errors), "min-h-[6rem]"]}
         {@rest}
       ><%= Phoenix.HTML.Form.normalize_value("textarea", @value) %></textarea>
-      <.error :for={msg <- @errors}>{msg}</.error>
+      <.error :for={{msg, index} <- Enum.with_index(@errors)} :key={index}>{msg}</.error>
     </div>
     """
   end
@@ -407,16 +431,21 @@ defmodule FaultyTowerWeb.CoreComponents do
         name={@name}
         id={@id}
         value={Phoenix.HTML.Form.normalize_value(@type, @value)}
-        class={[
-          "mt-2 block w-full rounded-lg text-zinc-900 focus:ring-0 sm:text-sm sm:leading-6",
-          @errors == [] && "border-zinc-300 focus:border-zinc-400",
-          @errors != [] && "border-rose-400 focus:border-rose-400"
-        ]}
+        class={input_class(@errors)}
         {@rest}
       />
-      <.error :for={msg <- @errors}>{msg}</.error>
+      <.error :for={{msg, index} <- Enum.with_index(@errors)} :key={index}>{msg}</.error>
     </div>
     """
+  end
+
+  @doc "The shared class list of text-like inputs; `errors` switches the border colour."
+  def input_class(errors \\ []) do
+    [
+      "mt-1 block w-full rounded-md border bg-white text-sm text-zinc-900 shadow-none focus:ring-0 focus:outline-none",
+      errors == [] && "border-zinc-300 focus:border-zinc-500",
+      errors != [] && "border-rose-400 focus:border-rose-400"
+    ]
   end
 
   @doc """
@@ -427,7 +456,7 @@ defmodule FaultyTowerWeb.CoreComponents do
 
   def label(assigns) do
     ~H"""
-    <label for={@for} class="block text-sm font-semibold leading-6 text-zinc-800">
+    <label for={@for} class="block text-sm font-medium text-zinc-700">
       {render_slot(@inner_block)}
     </label>
     """
@@ -508,7 +537,13 @@ defmodule FaultyTowerWeb.CoreComponents do
       <table class="w-[40rem] mt-11 sm:w-full">
         <thead class="text-sm text-left leading-6 text-zinc-500">
           <tr>
-            <th :for={col <- @col} class="p-0 pb-4 pr-6 font-normal">{col[:label]}</th>
+            <th
+              :for={{col, index} <- Enum.with_index(@col)}
+              :key={index}
+              class="p-0 pb-4 pr-6 font-normal"
+            >
+              {col[:label]}
+            </th>
             <th :if={@action != []} class="relative p-0 pb-4">
               <span class="sr-only">{gettext("Actions")}</span>
             </th>
@@ -522,6 +557,7 @@ defmodule FaultyTowerWeb.CoreComponents do
           <tr :for={row <- @rows} id={@row_id && @row_id.(row)} class="group hover:bg-zinc-50">
             <td
               :for={{col, i} <- Enum.with_index(@col)}
+              :key={i}
               phx-click={@row_click && @row_click.(row)}
               class={["relative p-0", @row_click && "hover:cursor-pointer"]}
             >
@@ -536,7 +572,8 @@ defmodule FaultyTowerWeb.CoreComponents do
               <div class="relative whitespace-nowrap py-4 text-right text-sm font-medium">
                 <span class="absolute -inset-y-px -right-4 left-0 group-hover:bg-zinc-50 sm:rounded-r-xl" />
                 <span
-                  :for={action <- @action}
+                  :for={{action, index} <- Enum.with_index(@action)}
+                  :key={index}
                   class="relative ml-4 font-semibold leading-6 text-zinc-900 hover:text-zinc-700"
                 >
                   {render_slot(action, @row_item.(row))}
@@ -568,7 +605,11 @@ defmodule FaultyTowerWeb.CoreComponents do
     ~H"""
     <div class="mt-14">
       <dl class="-my-4 divide-y divide-zinc-100">
-        <div :for={item <- @item} class="flex gap-4 py-4 text-sm leading-6 sm:gap-8">
+        <div
+          :for={{item, index} <- Enum.with_index(@item)}
+          :key={index}
+          class="flex gap-4 py-4 text-sm leading-6 sm:gap-8"
+        >
           <dt class="w-1/4 flex-none text-zinc-500">{item.title}</dt>
           <dd class="text-zinc-700">{render_slot(item)}</dd>
         </div>
@@ -600,6 +641,38 @@ defmodule FaultyTowerWeb.CoreComponents do
     </div>
     """
   end
+
+  @doc """
+  Renders a timestamp as relative time. The `LocalTime` hook replaces the UTC
+  fallback text with the browser's relative time. With `format="exact"` the
+  text is the exact local time and the relative time goes in the `title`.
+  """
+  attr :id, :string, required: true
+  attr :at, :any, default: nil
+  attr :format, :string, default: "relative", values: ["relative", "exact"]
+
+  def relative_time(%{at: nil} = assigns) do
+    ~H"""
+    <span class="text-zinc-400">–</span>
+    """
+  end
+
+  def relative_time(assigns) do
+    ~H"""
+    <time
+      id={@id}
+      datetime={DateTime.to_iso8601(@at)}
+      data-format={@format}
+      phx-hook="LocalTime"
+      phx-update="ignore"
+    >
+      {fallback_time(@at, @format)}
+    </time>
+    """
+  end
+
+  defp fallback_time(at, "exact"), do: Calendar.strftime(at, "%-d %b %Y, %H:%M UTC")
+  defp fallback_time(at, _), do: Calendar.strftime(at, "%-d %b %H:%M UTC")
 
   @doc """
   Renders a [Heroicon](https://heroicons.com).

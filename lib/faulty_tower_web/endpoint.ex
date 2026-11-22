@@ -25,6 +25,8 @@ defmodule FaultyTowerWeb.Endpoint do
     gzip: false,
     only: FaultyTowerWeb.static_paths()
 
+  plug RemoteIp, proxies: Application.compile_env(:faulty_tower, :trusted_proxies, [])
+
   # Code reloading can be explicitly enabled under the
   # :code_reloader configuration of your endpoint.
   if code_reloading? do
@@ -44,6 +46,7 @@ defmodule FaultyTowerWeb.Endpoint do
   plug Plug.Parsers,
     parsers: [:urlencoded, :multipart, :json],
     pass: ["*/*"],
+    body_reader: {FaultyTowerWeb.Plugs.CacheBodyReader, :read_body, []},
     json_decoder: Phoenix.json_library()
 
   plug Plug.MethodOverride

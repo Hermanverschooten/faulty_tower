@@ -35,13 +35,13 @@ defmodule FaultyTower.MCPTools.ListProjects do
       "projects" =>
         Enum.map(projects, fn project ->
           %{
-            "id" => project.id,
-            "key" => project.key,
+            "project_id" => project.key,
             "name" => project.name,
             "organization_id" => project.organization_id,
             "organization_name" => project.organization.name,
             "otp_app" => project.otp_app,
-            "github_repo" => project.github && project.github.repo,
+            "repository" => project.repository && project.repository.repo,
+            "git_provider" => project.git_provider,
             "ntfy_topic" => project.ntfy,
             "error_count" => length(project.unresolved_errors || [])
           }

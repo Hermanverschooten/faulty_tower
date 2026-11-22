@@ -4,89 +4,80 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="csrf-token" content={get_csrf_token()} />
-    <.live_title>
+    <.live_title suffix=" · Octarion">
       {assigns[:page_title] || "FaultyTower"}
     </.live_title>
+    <link rel="icon" href="/favicon.ico" sizes="32x32" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
     <link phx-track-static rel="stylesheet" href={~p"/assets/app.css"} />
     <script defer phx-track-static type="text/javascript" src={~p"/assets/app.js"}>
     </script>
   </head>
-  <body class="bg-gray-50">
-    <ul class="relative z-10 flex items-center gap-4 px-4 sm:px-6 lg:px-8 justify-end my-4">
-      <%= if @current_user do %>
-        <li class="text-[0.8125rem] leading-6 text-zinc-900">
-          {@current_user.email}
-        </li>
-        <li>
-          <.link
-            href={~p"/"}
-            class="text-[0.8125rem] leading-6 text-zinc-900 font-semibold hover:text-zinc-700 flex items-center gap-1 hover:bg-zinc-300 px-1"
-            title="Dashboard"
-          >
-            <.icon name="hero-document-text" class="w-4 h-4" />
-            <span class="hidden md:block">Dashboard</span>
-          </.link>
-        </li>
-        <li :if={@current_user.admin}>
-          <.link
-            href={~p"/users"}
-            class="text-[0.8125rem] leading-6 text-zinc-900 font-semibold hover:text-zinc-700 flex items-center gap-1 hover:bg-zinc-300 px-1"
-            title="Users"
-          >
-            <.icon name="hero-users" class="w-4 h-4" />
-            <span class="hidden md:block">
-              Users
-            </span>
-          </.link>
-        </li>
-        <li :if={@current_user.admin}>
-          <.link
-            href={~p"/organizations"}
-            class="text-[0.8125rem] leading-6 text-zinc-900 font-semibold hover:text-zinc-700 flex items-center gap-1 hover:bg-zinc-300 px-1"
-            title="Organizations"
-          >
-            <.icon name="hero-building-office" class="w-4 h-4" />
-            <span class="hidden md:block">
-              Organizations
-            </span>
-          </.link>
-        </li>
-        <li>
-          <.link
-            href={~p"/users/settings"}
-            class="text-[0.8125rem] leading-6 text-zinc-900 font-semibold hover:text-zinc-700 flex items-center gap-1 hover:bg-zinc-300 px-1"
-            title="Settings"
-          >
-            <.icon name="hero-cog" class="w-4 h-4" />
-            <span class="hidden md:block">
-              Settings
-            </span>
-          </.link>
-        </li>
-        <li>
-          <.link
-            href={~p"/users/log_out"}
-            method="delete"
-            class="text-[0.8125rem] leading-6 text-zinc-900 font-semibold hover:text-zinc-700 flex items-center gap-1 hover:bg-zinc-300 px-1"
-            title="Log out"
-          >
-            <.icon name="hero-arrow-right-end-on-rectangle" class="w-4 h-4" />
-            <span class="hidden md:block">
+  <body class="bg-gray-50 flex min-h-screen flex-col">
+    <nav class={[
+      "mx-auto w-full max-w-6xl px-4 flex items-center gap-4 my-4 text-sm",
+      if(@current_user, do: "justify-between", else: "justify-center")
+    ]}>
+      <.link href={~p"/"} class="font-semibold text-zinc-900">FaultyTower</.link>
+      <div :if={@current_user} class="flex items-center gap-4 text-zinc-600">
+        <.link
+          :if={@current_user.admin}
+          href={~p"/users"}
+          class="hover:text-zinc-900 hover:underline"
+        >
+          Users
+        </.link>
+        <.link
+          :if={@current_user.admin}
+          href={~p"/organizations"}
+          class="hover:text-zinc-900 hover:underline"
+        >
+          <span class="sm:hidden">Orgs</span><span class="hidden sm:inline">Organizations</span>
+        </.link>
+        <button
+          type="button"
+          popovertarget="settings-menu"
+          style="anchor-name: --settings"
+          class="hover:text-zinc-900 hover:underline cursor-pointer"
+        >
+          Settings
+        </button>
+        <div
+          id="settings-menu"
+          popover
+          style="position-anchor: --settings; position-area: bottom span-left"
+          class="inset-auto m-0 mt-1 min-w-48 rounded-md border border-gray-200 bg-white p-3 text-sm shadow-sm"
+        >
+          <div class="text-zinc-400 mb-2">{@current_user.email}</div>
+          <div class="flex flex-col gap-2">
+            <.link href={~p"/users/settings"} class="text-zinc-700 hover:underline">
+              Account settings
+            </.link>
+            <.link
+              href={~p"/users/log_out"}
+              method="delete"
+              class="text-zinc-700 hover:underline"
+            >
               Log out
-            </span>
-          </.link>
-        </li>
-      <% else %>
-        <li>
-          <.link
-            href={~p"/users/log_in"}
-            class="text-[0.8125rem] leading-6 text-zinc-900 font-semibold hover:text-zinc-700"
-          >
-            Log in
-          </.link>
-        </li>
-      <% end %>
-    </ul>
+            </.link>
+          </div>
+        </div>
+      </div>
+    </nav>
     {@inner_content}
+    <footer aria-hidden="true" class="mt-auto pt-16">
+      <div class="h-24 sm:h-40 bg-linear-to-b from-gray-50 to-[#c8d5c0] to-75%">
+        <div class="relative mx-auto h-full max-w-6xl px-4">
+          <img
+            src={~p"/images/signpost.webp"}
+            alt=""
+            width="682"
+            height="469"
+            class="absolute bottom-0 left-2/3 sm:left-4/5 h-auto w-[140px] -translate-x-1/2 sm:w-[220px]"
+          />
+        </div>
+      </div>
+    </footer>
   </body>
 </html>

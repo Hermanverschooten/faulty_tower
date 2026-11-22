@@ -1,7 +1,7 @@
 defmodule FaultyTowerWeb.DashboardLive do
-  alias FaultyTower.Project
   alias FaultyTower.Dashboard
   use FaultyTowerWeb, :live_view
+  import FaultyTowerWeb.Helpers, only: [unix: 1]
 
   def mount(_params, _session, socket) do
     projects = load_projects(socket.assigns.current_user)
@@ -21,41 +21,35 @@ defmodule FaultyTowerWeb.DashboardLive do
     <div class="grid grid-cols-1  md:grid-cols-2 xl:grid-cols-3 gap-4" id="dashboard">
       <div
         :for={project <- @projects}
-        class={[
-          "border pt-4 px-0 rounded-md drop-shadow-lg",
-          if(project.unresolved_errors == [], do: "bg-white", else: "bg-red-50")
-        ]}
+        :key={project.id}
+        class="relative rounded-md border border-gray-200 bg-white p-4"
       >
-        <h2 class="text-2xl font-semibold px-4 mt-2">{project.name}</h2>
-        <h2 class={["border-b my-2", if(project.unresolved_errors != [], do: "border-b-red-200")]}>
+        <.link
+          navigate={~p"/project/#{project.id}/edit"}
+          aria-label="Project settings"
+          class="absolute z-10 top-4 right-4 text-zinc-400 hover:text-zinc-700"
+        >
+          <.icon name="hero-cog" class="w-4 h-4" />
+        </.link>
+        <h2 class="font-semibold pr-6">
+          <.link navigate={~p"/project/#{project.key}"} class="after:absolute after:inset-0">
+            {project.name}
+          </.link>
         </h2>
-        <div class="flex flex-col my-2 gap-4 p-4">
-          <div class="uppercase text-xs">{project.organization.name}</div>
-          <div class="flex justify-between items-center">
-            <.link
-              navigate={~p"/project/#{project.key}"}
-              class={[
-                "border rounded-md px-4 py-1 flex items-center gap-2",
-                if(project.unresolved_errors == [],
-                  do: "text-gray-400 hover:bg-gray-100",
-                  else: "text-red-700 border-red-700 hover:bg-red-200"
-                )
-              ]}
-            >
-              {errors(project.unresolved_errors)}
-            </.link>
-            <.link navigate={~p"/project/#{project.id}/edit"}>
-              <button class={[
-                "rounded-md px-4 py-1 flex items-center gap-1 text-red-700 border-red-700",
-                if(project.unresolved_errors == [],
-                  do: "hover:bg-red-50",
-                  else: "hover:bg-red-200"
-                )
-              ]}>
-                <.icon name="hero-cog" class="w-4 h-4" /> Settings
-              </button>
-            </.link>
-          </div>
+        <div class="text-sm text-zinc-500">{project.organization.name}</div>
+        <div class="mt-3 text-sm">
+          <span :if={project.unresolved_errors != []} class="text-red-700 font-medium">
+            {length(project.unresolved_errors)} unresolved
+          </span>
+          <span :if={project.unresolved_errors == []} class="text-zinc-400">–</span>
+        </div>
+        <%!-- relative z-10 lifts it above the stretched link so the hover title shows --%>
+        <div class="relative z-10 w-fit text-sm text-zinc-500">
+          Last error
+          <.relative_time
+            id={"last-#{project.id}-#{unix(project.last_error_at)}"}
+            at={project.last_error_at}
+          />
         </div>
       </div>
     </div>
@@ -81,13 +75,6 @@ defmodule FaultyTowerWeb.DashboardLive do
   defp load_projects(current_user) do
     current_user
     |> Dashboard.projects()
-    |> then(fn %{projects: projects} -> Enum.sort(projects, Project) end)
-  end
-
-  defp errors([]), do: "No Errors"
-  defp errors([_]), do: "1 Error"
-
-  defp errors(errors) do
-    "#{length(errors)} Errors"
+    |> Map.fetch!(:projects)
   end
 end

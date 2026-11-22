@@ -7,6 +7,7 @@ defmodule FaultyTower.Application do
 
   @impl true
   def start(_type, _args) do
+
     children = [
       FaultyTowerWeb.Telemetry,
       FaultyTower.Repo,

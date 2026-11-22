@@ -1,7 +1,7 @@
 defmodule FaultyTowerWeb.MCPToolsTest do
   use FaultyTowerWeb.ConnCase
 
-  alias FaultyTower.{Organization, Project, Authentication, Errors}
+  alias FaultyTower.{Organization, Project, Errors}
   import FaultyTower.AuthenticationFixtures
 
   setup %{conn: conn} do
@@ -20,14 +20,10 @@ defmodule FaultyTowerWeb.MCPToolsTest do
     # Create test project
     {:ok, project} = Project.create("Test Project", org.id, "test_app")
 
-    # Create a valid session token for the user
-    token = Authentication.generate_user_session_token(user)
-    encoded_token = Base.encode64(token)
-
-    # Create MCP authenticated connection
+    # Create MCP authenticated connection using the user's persistent MCP token
     mcp_conn =
       conn
-      |> put_req_header("authorization", "Bearer #{encoded_token}")
+      |> put_req_header("authorization", "Bearer #{user.mcp_token}")
 
     %{
       user: user,
@@ -100,13 +96,10 @@ defmodule FaultyTowerWeb.MCPToolsTest do
       # Create user with no organizations
       user = user_fixture()
 
-      # Create valid session token for this user
-      token = Authentication.generate_user_session_token(user)
-      encoded_token = Base.encode64(token)
-
+      # Create MCP authenticated connection using the user's persistent MCP token
       mcp_conn =
         conn
-        |> put_req_header("authorization", "Bearer #{encoded_token}")
+        |> put_req_header("authorization", "Bearer #{user.mcp_token}")
 
       conn =
         post(mcp_conn, "/mcp", %{
@@ -150,7 +143,7 @@ defmodule FaultyTowerWeb.MCPToolsTest do
       [returned_project] = projects
 
       assert %{
-               "id" => _,
+               "project_id" => _,
                "name" => "Test Project",
                "organization_name" => "Test Organization",
                "otp_app" => "test_app",
@@ -308,7 +301,7 @@ defmodule FaultyTowerWeb.MCPToolsTest do
           "params" => %{
             "name" => "list_errors",
             "arguments" => %{
-              "project_id" => to_string(project.id)
+              "project_id" => project.key
             }
           },
           "id" => 1
@@ -339,7 +332,7 @@ defmodule FaultyTowerWeb.MCPToolsTest do
           "params" => %{
             "name" => "list_errors",
             "arguments" => %{
-              "project_id" => to_string(project.id),
+              "project_id" => project.key,
               "status" => "all"
             }
           },
@@ -354,17 +347,44 @@ defmodule FaultyTowerWeb.MCPToolsTest do
       assert length(errors) == 2
     end
 
-    test "denies access to other user's projects", %{conn: conn, project: project} do
+    test "accepts project UUID key", %{mcp_conn: mcp_conn, project: project} do
+      conn =
+        post(mcp_conn, "/mcp", %{
+          "jsonrpc" => "2.0",
+          "method" => "tools/call",
+          "params" => %{
+            "name" => "list_errors",
+            "arguments" => %{
+              "project_id" => project.key
+            }
+          },
+          "id" => 1
+        })
+
+      response = json_response(conn, 200)
+      text = get_in(response, ["result", "content", Access.at(0), "text"])
+      data = Jason.decode!(text)
+
+      assert %{
+               "project" => %{
+                 "name" => "Test Project",
+                 "project_id" => project_key
+               },
+               "errors" => errors
+             } = data
+
+      assert project_key == project.key
+      assert length(errors) == 1
+    end
+
+    test "denies access to other user's projects", %{conn: conn, project: _project} do
       # Create different user
       other_user = user_fixture()
 
-      # Create valid session token for the other user
-      other_token = Authentication.generate_user_session_token(other_user)
-      other_encoded_token = Base.encode64(other_token)
-
+      # Create MCP authenticated connection using the other user's persistent MCP token
       other_mcp_conn =
         conn
-        |> put_req_header("authorization", "Bearer #{other_encoded_token}")
+        |> put_req_header("authorization", "Bearer #{other_user.mcp_token}")
 
       conn =
         post(other_mcp_conn, "/mcp", %{
@@ -373,7 +393,7 @@ defmodule FaultyTowerWeb.MCPToolsTest do
           "params" => %{
             "name" => "list_errors",
             "arguments" => %{
-              "project_id" => to_string(project.id)
+              "project_id" => "invalid-uuid"
             }
           },
           "id" => 1
@@ -382,7 +402,7 @@ defmodule FaultyTowerWeb.MCPToolsTest do
       response = json_response(conn, 200)
       assert get_in(response, ["result", "isError"]) == true
       error_text = get_in(response, ["result", "content", Access.at(0), "text"])
-      assert error_text =~ "not found or access denied"
+      assert error_text =~ "Invalid project UUID format"
     end
   end
 
@@ -427,13 +447,10 @@ defmodule FaultyTowerWeb.MCPToolsTest do
       # Create different user
       other_user = user_fixture()
 
-      # Create valid session token for the other user
-      other_token = Authentication.generate_user_session_token(other_user)
-      other_encoded_token = Base.encode64(other_token)
-
+      # Create MCP authenticated connection using the other user's persistent MCP token
       other_mcp_conn =
         conn
-        |> put_req_header("authorization", "Bearer #{other_encoded_token}")
+        |> put_req_header("authorization", "Bearer #{other_user.mcp_token}")
 
       conn =
         post(other_mcp_conn, "/mcp", %{
@@ -491,6 +508,178 @@ defmodule FaultyTowerWeb.MCPToolsTest do
       # Verify error is actually reopened in database
       updated_error = FaultyTower.Repo.get!(Schema.Error, error.id)
       assert updated_error.status == :unresolved
+    end
+  end
+
+  describe "assign_issue" do
+    setup %{project: project} do
+      {:ok, project} =
+        project
+        |> Ecto.Changeset.change(%{git_provider: "github"})
+        |> Ecto.Changeset.put_embed(:repository, %{
+          repo: "test-org/test-repo",
+          branch: "main"
+        })
+        |> FaultyTower.Repo.update()
+
+      {:ok, error} = create_error(project, "Test error")
+      %{error: error, project: project}
+    end
+
+    test "assigns an issue number to an error", %{mcp_conn: mcp_conn, error: error} do
+      conn =
+        post(mcp_conn, "/mcp", %{
+          "jsonrpc" => "2.0",
+          "method" => "tools/call",
+          "params" => %{
+            "name" => "assign_issue",
+            "arguments" => %{
+              "error_id" => to_string(error.id),
+              "issue_number" => 123
+            }
+          },
+          "id" => 1
+        })
+
+      response = json_response(conn, 200)
+      text = get_in(response, ["result", "content", Access.at(0), "text"])
+      data = Jason.decode!(text)
+
+      assert %{
+               "success" => true,
+               "provider" => "github",
+               "issue_number" => 123,
+               "error_id" => _,
+               "message" => "Issue #123 successfully assigned to error"
+             } = data
+
+      # Verify the issue is assigned in the database
+      updated_error = FaultyTower.Repo.get!(Schema.Error, error.id)
+      assert updated_error.gh_issue == 123
+    end
+
+    test "rejects invalid issue numbers", %{mcp_conn: mcp_conn, error: error} do
+      conn =
+        post(mcp_conn, "/mcp", %{
+          "jsonrpc" => "2.0",
+          "method" => "tools/call",
+          "params" => %{
+            "name" => "assign_issue",
+            "arguments" => %{
+              "error_id" => to_string(error.id),
+              "issue_number" => -1
+            }
+          },
+          "id" => 1
+        })
+
+      response = json_response(conn, 200)
+      assert get_in(response, ["result", "isError"]) == true
+      error_text = get_in(response, ["result", "content", Access.at(0), "text"])
+      assert error_text =~ "Invalid issue number"
+    end
+
+    test "rejects zero as issue number", %{mcp_conn: mcp_conn, error: error} do
+      conn =
+        post(mcp_conn, "/mcp", %{
+          "jsonrpc" => "2.0",
+          "method" => "tools/call",
+          "params" => %{
+            "name" => "assign_issue",
+            "arguments" => %{
+              "error_id" => to_string(error.id),
+              "issue_number" => 0
+            }
+          },
+          "id" => 1
+        })
+
+      response = json_response(conn, 200)
+      assert get_in(response, ["result", "isError"]) == true
+      error_text = get_in(response, ["result", "content", Access.at(0), "text"])
+      assert error_text =~ "Invalid issue number"
+    end
+
+    test "denies access to other user's errors", %{conn: conn, error: error} do
+      # Create different user
+      other_user = user_fixture()
+
+      # Create MCP authenticated connection using the other user's persistent MCP token
+      other_mcp_conn =
+        conn
+        |> put_req_header("authorization", "Bearer #{other_user.mcp_token}")
+
+      conn =
+        post(other_mcp_conn, "/mcp", %{
+          "jsonrpc" => "2.0",
+          "method" => "tools/call",
+          "params" => %{
+            "name" => "assign_issue",
+            "arguments" => %{
+              "error_id" => to_string(error.id),
+              "issue_number" => 123
+            }
+          },
+          "id" => 1
+        })
+
+      response = json_response(conn, 200)
+      assert get_in(response, ["result", "isError"]) == true
+      error_text = get_in(response, ["result", "content", Access.at(0), "text"])
+      assert error_text =~ "not found or access denied"
+    end
+
+    test "allows assigning the same issue to multiple errors", %{
+      mcp_conn: mcp_conn,
+      project: project
+    } do
+      # Reload project to ensure GitHub config is available
+      project = FaultyTower.Repo.get!(Schema.Project, project.id)
+
+      {:ok, error1} = create_error(project, "Error 1")
+      {:ok, error2} = create_error(project, "Error 2")
+
+      # Assign issue #456 to first error
+      conn1 =
+        post(mcp_conn, "/mcp", %{
+          "jsonrpc" => "2.0",
+          "method" => "tools/call",
+          "params" => %{
+            "name" => "assign_issue",
+            "arguments" => %{
+              "error_id" => to_string(error1.id),
+              "issue_number" => 456
+            }
+          },
+          "id" => 1
+        })
+
+      response1 = json_response(conn1, 200)
+      assert get_in(response1, ["result", "isError"]) != true
+
+      # Assign same issue #456 to second error
+      conn2 =
+        post(mcp_conn, "/mcp", %{
+          "jsonrpc" => "2.0",
+          "method" => "tools/call",
+          "params" => %{
+            "name" => "assign_issue",
+            "arguments" => %{
+              "error_id" => to_string(error2.id),
+              "issue_number" => 456
+            }
+          },
+          "id" => 2
+        })
+
+      response2 = json_response(conn2, 200)
+      assert get_in(response2, ["result", "isError"]) != true
+
+      # Verify both errors have the same issue number
+      updated_error1 = FaultyTower.Repo.get!(Schema.Error, error1.id)
+      updated_error2 = FaultyTower.Repo.get!(Schema.Error, error2.id)
+      assert updated_error1.gh_issue == 456
+      assert updated_error2.gh_issue == 456
     end
   end
 

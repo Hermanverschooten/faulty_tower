@@ -22,9 +22,43 @@ import { Socket } from "phoenix"
 import { LiveSocket } from "phoenix_live_view"
 import topbar from "../vendor/topbar"
 
+const exact = new Intl.DateTimeFormat("en-GB", {
+  day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit"
+})
+
+function relative(date) {
+  const min = Math.floor((Date.now() - date) / 60000)
+  if (min < 1) return "just now"
+  if (min < 60) return `${min} min ago`
+  if (min < 1440) return `${Math.floor(min / 60)} h ago`
+  if (min < 10080) return `${Math.floor(min / 1440)} d ago`
+  const opts = { day: "numeric", month: "short" }
+  if (date.getFullYear() !== new Date().getFullYear()) opts.year = "numeric"
+  return date.toLocaleDateString("en-GB", opts)
+}
+
+function renderTime(el) {
+  const date = new Date(el.getAttribute("datetime"))
+  if (el.dataset.format === "exact") {
+    el.textContent = exact.format(date)
+    el.title = relative(date)
+  } else {
+    el.textContent = relative(date)
+    el.title = exact.format(date)
+  }
+}
+
+const LocalTime = {
+  mounted() { renderTime(this.el) },
+  updated() { renderTime(this.el) }
+}
+
+setInterval(() => document.querySelectorAll("time[phx-hook=LocalTime]").forEach(renderTime), 60000)
+
 let csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
 let liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
+  hooks: { LocalTime },
   params: { _csrf_token: csrfToken }
 })
 

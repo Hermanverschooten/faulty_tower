@@ -11,6 +11,8 @@ defmodule FaultyTowerWeb.ReportController do
           {:add, error.id}
         )
 
+        Phoenix.PubSub.broadcast(FaultyTower.PubSub, "error:#{error.id}", :refresh)
+
         Task.start(fn -> Recorder.notify(error) end)
 
         conn

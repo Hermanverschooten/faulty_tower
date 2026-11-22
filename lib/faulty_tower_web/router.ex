@@ -18,6 +18,16 @@ defmodule FaultyTowerWeb.Router do
     plug :accepts, ["json"]
   end
 
+  pipeline :github_webhook do
+    plug :accepts, ["json"]
+    plug FaultyTowerWeb.Plugs.GitHub
+  end
+
+  pipeline :forgejo_webhook do
+    plug :accepts, ["json"]
+    plug FaultyTowerWeb.Plugs.Forgejo
+  end
+
   pipeline :mcp do
     plug :accepts, ["json"]
     plug :fetch_session
@@ -28,7 +38,18 @@ defmodule FaultyTowerWeb.Router do
     pipe_through :api
 
     post "/report/:project_id", ReportController, :receive
+  end
+
+  scope "/api", FaultyTowerWeb do
+    pipe_through :github_webhook
+
     post "/gh/webhook", GitHubController, :webhook
+  end
+
+  scope "/api", FaultyTowerWeb do
+    pipe_through :forgejo_webhook
+
+    post "/forgejo/webhook", ForgejoController, :webhook
   end
 
   if Application.compile_env(:faulty_tower, :dev_routes) do
@@ -68,7 +89,9 @@ defmodule FaultyTowerWeb.Router do
       live "/users/settings", UserSettingsLive, :edit
       live "/users/settings/confirm_email/:token", UserSettingsLive, :confirm_email
       live "/users", UserLive
-      live "/organizations", OrganizationLive
+      live "/organizations", OrganizationLive.Index
+      live "/organizations/new", OrganizationLive.Edit, :new
+      live "/organizations/:id/edit", OrganizationLive.Edit, :edit
     end
   end
 
@@ -102,7 +125,8 @@ defmodule FaultyTowerWeb.Router do
         MCPTools.GetErrorDetails,
         MCPTools.ResolveError,
         MCPTools.ReopenError,
-        MCPTools.CreateGithubIssue
+        MCPTools.CreateIssue,
+        MCPTools.AssignIssue
       ]
   end
 end

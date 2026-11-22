@@ -23,7 +23,7 @@ defmodule FaultyTower.MCPTools.ReopenError do
     user = get_user_from_conn(conn)
     error_id = params["error_id"]
 
-    case Errors.get_user_error(user, String.to_integer(error_id)) do
+    case Errors.get_user_error(user, error_id) do
       {:ok, error} ->
         case Errors.reopen_error(error) do
           {:ok, updated_error} ->

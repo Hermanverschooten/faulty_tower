@@ -17,6 +17,7 @@ defmodule Schema.Error do
     field :count, :integer, virtual: true
     field :occurrence_count, :integer, virtual: true
     field :gh_issue, :integer
+    field :git_provider, :string
 
     belongs_to :project, Schema.Project
     has_many :occurrences, Schema.Occurrence, preload_order: [desc: :id]

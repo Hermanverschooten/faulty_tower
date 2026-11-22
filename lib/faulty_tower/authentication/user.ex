@@ -10,6 +10,7 @@ defmodule FaultyTower.Authentication.User do
     field :confirmed_at, :utc_datetime
     field :name, :string
     field :admin, :boolean, default: false
+    field :mcp_token, :string, redact: true
 
     timestamps(type: :utc_datetime)
     many_to_many :organizations, Schema.Organization, join_through: "users_organizations"
