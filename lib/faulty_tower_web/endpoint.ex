@@ -25,8 +25,6 @@ defmodule FaultyTowerWeb.Endpoint do
     gzip: false,
     only: FaultyTowerWeb.static_paths()
 
-  plug Phx2Ban.Plug
-
   # Code reloading can be explicitly enabled under the
   # :code_reloader configuration of your endpoint.
   if code_reloading? do

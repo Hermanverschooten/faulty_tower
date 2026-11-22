@@ -79,7 +79,6 @@ defmodule FaultyTowerWeb.Router do
 
     live_dashboard "/live_dashboard",
       metrics: FaultyTowerWeb.Telemetry,
-      additional_pages: [route_name: Phx2Ban.LiveDashboardPlugin],
       on_mount: [{FaultyTowerWeb.UserAuth, :ensure_authenticated}]
 
     live_session :current_user,

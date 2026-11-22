@@ -61,7 +61,6 @@ defmodule FaultyTower.MixProject do
       {:jason, "~> 1.2"},
       {:bandit, "~> 1.5"},
       {:site_encrypt, "~> 0.7"},
-      {:phx_2_ban, "~> 0.1", repo: "ezsuite"},
       {:joken, "~> 2.6"},
       {:vancouver, "~> 0.3"},
       {:mimic, "~> 2.0", only: :test}
