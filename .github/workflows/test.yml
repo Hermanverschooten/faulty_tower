@@ -73,5 +73,10 @@ jobs:
       - name: Compile
         run: mix compile --warnings-as-errors
 
+      - name: Verify service DNS
+        run: |
+          getent hosts postgres || echo "DNS lookup for postgres failed"
+          cat /etc/resolv.conf
+
       - name: Run tests
         run: mix test
