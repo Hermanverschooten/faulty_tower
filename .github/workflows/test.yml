@@ -11,11 +11,12 @@ jobs:
     env:
       MIX_ENV: test
       MIX_OS_DEPS_COMPILE_PARTITION_COUNT: 8
-      DATABASE_HOST: postgres
 
     services:
       postgres:
         image: postgres:17
+        ports:
+          - 5432:5432
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
@@ -72,11 +73,6 @@ jobs:
 
       - name: Compile
         run: mix compile --warnings-as-errors
-
-      - name: Verify service DNS
-        run: |
-          getent hosts postgres || echo "DNS lookup for postgres failed"
-          cat /etc/resolv.conf
 
       - name: Run tests
         run: mix test
