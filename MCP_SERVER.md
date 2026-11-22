@@ -6,26 +6,27 @@ This document describes the Model Context Protocol (MCP) server implementation f
 
 The FaultyTower MCP server provides tools that allow authenticated users to:
 - Query their organizations and projects
-- List and analyze errors with AI-friendly formatting
+- List and search errors with AI-friendly formatting
 - Resolve or reopen errors
-- Create GitHub issues for errors
+- Create issues in GitHub or Forgejo for errors
+- Assign existing issues to errors (useful when multiple errors share the same root cause)
 
 ## Authentication
 
-The MCP server uses Bearer token authentication. You need to provide a valid FaultyTower session token in the Authorization header:
+The MCP server uses Bearer token authentication. You need to provide a valid FaultyTower MCP token in the Authorization header:
 
 ```
-Authorization: Bearer YOUR_SESSION_TOKEN
+Authorization: Bearer YOUR_MCP_TOKEN
 ```
 
-### Getting Your Session Token
+### Getting Your MCP Token
 
 1. Log in to your FaultyTower account
 2. Navigate to "Account Settings" (`/users/settings`)
 3. Scroll down to the "MCP Server Access" section
-4. Copy the displayed session token
+4. Copy the displayed MCP token
 
-This token is the same one used for your current browser session and will remain valid as long as your session is active.
+This token remains valid until it expires (shown in settings) or you regenerate it.
 
 ## Available Tools
 
@@ -108,7 +109,39 @@ Lists errors for a specific project.
 }
 ```
 
-### 4. get_error_details
+### 4. search_errors
+Search for errors across all user projects by reason text.
+
+**Input:**
+- `search_text` (required): Text to search for in error reasons
+- `status` (optional): "unresolved", "resolved", or "all" (default: "unresolved")
+- `limit` (optional): Maximum number of errors to return (default: 50)
+
+**Output:**
+```json
+{
+  "search_text": "connection",
+  "total_found": 3,
+  "errors": [
+    {
+      "id": "uuid",
+      "reason": "Connection refused",
+      "status": "unresolved",
+      "fingerprint": "hash",
+      "occurrence_count": 5,
+      "first_occurrence": "2024-01-01T00:00:00Z",
+      "last_occurrence": "2024-01-02T00:00:00Z",
+      "project": {
+        "project_id": "project-key",
+        "name": "Project Name",
+        "organization": "Org Name"
+      }
+    }
+  ]
+}
+```
+
+### 5. get_error_details
 Gets detailed information about a specific error, including stacktrace formatted for AI analysis.
 
 **Input:**
@@ -128,9 +161,8 @@ Gets detailed information about a specific error, including stacktrace formatted
     "last_occurrence": "2024-01-02T00:00:00Z",
     "github_issue_url": "https://github.com/owner/repo/issues/123",
     "project": {
-      "id": "uuid",
+      "project_id": "project-key",
       "name": "Project Name",
-      "key": "project-key",
       "otp_app": "app_name"
     }
   },
@@ -147,12 +179,11 @@ Gets detailed information about a specific error, including stacktrace formatted
 }
 ```
 
-### 5. resolve_error
+### 6. resolve_error
 Marks an error as resolved.
 
 **Input:**
 - `error_id` (required): The error ID
-- `resolution_note` (optional): Note about how the error was resolved
 
 **Output:**
 ```json
@@ -160,14 +191,12 @@ Marks an error as resolved.
   "success": true,
   "error": {
     "id": "uuid",
-    "status": "resolved",
-    "resolved_at": "2024-01-02T00:00:00Z",
-    "resolution_note": "Fixed in commit abc123"
+    "status": "resolved"
   }
 }
 ```
 
-### 6. reopen_error
+### 7. reopen_error
 Reopens a resolved error.
 
 **Input:**
@@ -184,24 +213,62 @@ Reopens a resolved error.
 }
 ```
 
-### 7. create_github_issue
-Creates a GitHub issue for an error (requires GitHub to be configured for the project).
+### 8. create_issue
+Creates an issue for an error in the project's configured git provider (GitHub or Forgejo).
 
 **Input:**
 - `error_id` (required): The error ID
-- `title` (optional): Issue title (defaults to error reason)
-- `body` (optional): Issue body (defaults to formatted error details)
 
 **Output:**
 ```json
 {
   "success": true,
-  "github_issue_url": "https://github.com/owner/repo/issues/123",
+  "provider": "github",
+  "issue_number": 123,
   "error_id": "uuid"
 }
 ```
 
+### 9. assign_issue
+Assigns an existing issue to an error. This is useful when multiple errors share the same root cause and you want to link them all to a single issue instead of creating duplicate issues.
+
+**Input:**
+- `error_id` (required): The error ID to assign the issue to
+- `issue_number` (required): The issue number (integer)
+
+**Output:**
+```json
+{
+  "success": true,
+  "provider": "github",
+  "issue_number": 123,
+  "error_id": "uuid",
+  "message": "Issue #123 successfully assigned to error"
+}
+```
+
 ## Configuration for AI Assistants
+
+### Claude Code
+
+Add to your Claude Code settings (`~/.claude/settings.json`):
+
+```json
+{
+  "mcpServers": {
+    "FaultyTower": {
+      "command": "npx",
+      "args": [
+        "mcp-remote",
+        "https://your-faulty-tower-domain/mcp"
+      ],
+      "env": {
+        "AUTHORIZATION": "Bearer YOUR_MCP_TOKEN"
+      }
+    }
+  }
+}
+```
 
 ### Claude Desktop
 
@@ -214,10 +281,10 @@ Add to your Claude Desktop configuration:
       "command": "npx",
       "args": [
         "mcp-remote",
-        "http://localhost:4000/mcp"
+        "https://your-faulty-tower-domain/mcp"
       ],
       "env": {
-        "AUTHORIZATION": "Bearer YOUR_SESSION_TOKEN"
+        "AUTHORIZATION": "Bearer YOUR_MCP_TOKEN"
       }
     }
   }
@@ -226,7 +293,7 @@ Add to your Claude Desktop configuration:
 
 ### Other MCP Clients
 
-The MCP server is available at `http://your-faulty-tower-domain/mcp` and follows the standard MCP protocol over HTTP with Server-Sent Events (SSE) transport.
+The MCP server is available at `https://your-faulty-tower-domain/mcp` and follows the standard MCP protocol over HTTP with Server-Sent Events (SSE) transport.
 
 ## Example Usage
 
@@ -238,15 +305,29 @@ The MCP server is available at `http://your-faulty-tower-domain/mcp` and follows
    4. The AI can analyze the error using the provided prompt
    ```
 
-2. **Creating a GitHub issue:**
+2. **Searching for specific errors:**
    ```
-   1. Use get_error_details to understand the error
-   2. Use create_github_issue to create an issue with a custom title/body
-   3. The error will be automatically linked to the GitHub issue
+   1. Use search_errors with a keyword to find errors across all projects
+   2. Use get_error_details on any matching error for full context
    ```
 
-3. **Managing error status:**
+3. **Creating an issue:**
+   ```
+   1. Use get_error_details to understand the error
+   2. Use create_issue to create an issue in GitHub/Forgejo
+   3. The error will be automatically linked to the issue
+   ```
+
+4. **Managing error status:**
    ```
    1. Use resolve_error when an error is fixed
    2. Use reopen_error if the error reoccurs
+   ```
+
+5. **Linking multiple errors to the same issue:**
+   ```
+   1. Use list_errors or search_errors to find errors with the same root cause
+   2. Use create_issue on the first error to create a new issue
+   3. Use assign_issue on the other errors to link them to the same issue
+   4. All errors will now be associated with the single issue
    ```
