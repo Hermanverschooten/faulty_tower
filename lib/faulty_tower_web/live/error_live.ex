@@ -114,7 +114,7 @@ defmodule FaultyTowerWeb.ErrorLive do
             </table>
           </div>
           <div class="text-gray-700 font-bold">CONTEXT</div>
-          <pre class="text-xs lg:text-base p-4 rounded-md bg-gray-600 text-white mb-4 mt-2 overflow-x-scroll"><%= inspect(@occurrence.context, pretty: true) %></pre>
+          <pre class="text-xs lg:text-base p-4 rounded-md bg-gray-600 text-white mb-4 mt-2 overflow-x-scroll"><%= inspect(@occurrence.context, pretty: true, limit: :infinity, printable_limit: :infinity) %></pre>
         </div>
         <div class="border-t-2 py-4 lg:border-t-0 lh:py-0 lg:border-l-2 lg:px-4 border-gray-600">
           <div class="text-gray-700 font-bold">OCCURRENCES ({@error.count} TOTAL)</div>
