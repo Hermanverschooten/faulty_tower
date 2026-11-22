@@ -1,5 +1,6 @@
 defmodule FaultyTowerWeb.UserLive do
   use FaultyTowerWeb, :live_view
+  alias FaultyTower.Authentication
   alias FaultyTower.Organization
   alias FaultyTower.User
 
@@ -7,7 +8,7 @@ defmodule FaultyTowerWeb.UserLive do
 
   @impl true
   def mount(_, _session, socket) do
-    users = User.list()
+    users = User.list(:organizations)
     organizations = Organization.list()
 
     {:ok,
@@ -20,22 +21,44 @@ defmodule FaultyTowerWeb.UserLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <h1 class="text-2xl font-semibold flex items-center">
-      Users
-      <button type="button" phx-click="add">
-        <.icon name="hero-user-plus" class="ml-2 w-5 h-5" />
+    <div class="flex items-baseline gap-4">
+      <h1 class="text-2xl font-semibold [text-wrap:balance]">Users</h1>
+      <button
+        type="button"
+        phx-click="add"
+        class="text-sm text-zinc-500 hover:text-zinc-900"
+      >
+        Add user
       </button>
-    </h1>
-    <ul>
-      <li
+    </div>
+    <div id="users" class="mt-4 max-sm:border-t border-gray-200 [text-wrap:balance]">
+      <div class="max-sm:hidden grid grid-cols-[1fr_1fr_4rem] gap-4 border-b border-gray-200 pb-1 text-xs text-zinc-500">
+        <span>Email</span>
+        <span>Organizations</span>
+        <span>Role</span>
+      </div>
+      <button
         :for={user <- @users}
-        class="hover:underline cursor-pointer"
+        :key={user.id}
+        id={"users-#{user.id}"}
+        type="button"
         phx-click="edit"
         phx-value-id={user.id}
+        class="group block w-full border-b border-gray-200 py-2 text-left sm:grid sm:grid-cols-[1fr_1fr_4rem] sm:gap-4"
       >
-        {user.email}
-      </li>
-    </ul>
+        <span class="block text-sm text-zinc-900 group-hover:underline">
+          {user.email}
+          <span :if={user.name} class="block text-zinc-500">{user.name}</span>
+        </span>
+        <span class="block text-sm text-zinc-500">
+          {Enum.map_join(user.organizations, ", ", & &1.name)}
+          <span :if={user.admin} class="sm:hidden">
+            {if user.organizations != [], do: "· "}admin
+          </span>
+        </span>
+        <span :if={user.admin} class="max-sm:hidden text-sm text-zinc-500">admin</span>
+      </button>
+    </div>
     <.modal :if={@form} id="user_edit" show on_cancel={JS.push("cancel")}>
       <.simple_form
         for={@form}
@@ -54,10 +77,22 @@ defmodule FaultyTowerWeb.UserLive do
           checkgroup_empty={false}
           label="Organizations"
         />
+        <.input
+          :if={@user.id == nil}
+          type="checkbox"
+          field={@form[:send_welcome_email]}
+          label="Send welcome e-mail"
+        />
 
-        <div>
+        <div class="flex items-center gap-4 pt-1">
           <.button type="submit">Save</.button>
-          <.button type="button" phx-click={JS.exec("data-cancel", to: "#user_edit")}>Cancel</.button>
+          <button
+            type="button"
+            phx-click={JS.push("cancel")}
+            class="text-sm text-zinc-500 hover:text-zinc-900"
+          >
+            Cancel
+          </button>
         </div>
       </.simple_form>
     </.modal>
@@ -73,7 +108,8 @@ defmodule FaultyTowerWeb.UserLive do
         %{
           "email" => "",
           "admin" => "",
-          "organizations" => []
+          "organizations" => [],
+          "send_welcome_email" => true
         },
         as: :user
       )
@@ -126,8 +162,15 @@ defmodule FaultyTowerWeb.UserLive do
 
   def handle_event("save", %{"user" => params}, socket) do
     socket =
-      with {:ok, _user} <- insert_or_update(socket.assigns.user, params) do
-        users = User.list()
+      with {:ok, user} <- insert_or_update(socket.assigns.user, params) do
+        if socket.assigns.user.id == nil and params["send_welcome_email"] == "true" do
+          Authentication.deliver_user_welcome_instructions(
+            user,
+            &url(~p"/users/reset_password/#{&1}")
+          )
+        end
+
+        users = User.list(:organizations)
 
         socket
         |> assign(form: nil)

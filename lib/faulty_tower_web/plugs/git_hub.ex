@@ -1,4 +1,10 @@
-defmodule FaultyTowerWeb.GitHub do
+defmodule FaultyTowerWeb.Plugs.GitHub do
+  @moduledoc """
+  Plug for verifying GitHub webhook signatures.
+
+  This plug verifies that incoming webhook requests from GitHub have a valid
+  HMAC-SHA256 signature using the GH_CLIENT_SECRET environment variable.
+  """
   @behaviour Plug
 
   import Plug.Conn
@@ -9,39 +15,39 @@ defmodule FaultyTowerWeb.GitHub do
 
   def call(%{request_path: "/api/gh/webhook"} = conn, _) do
     secret = System.get_env("GH_CLIENT_SECRET")
-    ["sha256=" <> signature] = get_req_header(conn, "X-Hub-Signature-256")
+    body = conn.assigns[:raw_body] || ""
 
-    with {:ok, body, conn} <- read_whole_body(conn) do
-      calculated_signature =
-        :crypto.mac(:hmac, :sha256, secret, body) |> Base.encode16(case: :lower)
+    case get_req_header(conn, "x-hub-signature-256") do
+      ["sha256=" <> signature] ->
+        calculated_signature =
+          :crypto.mac(:hmac, :sha256, secret, body) |> Base.encode16(case: :lower)
 
-      if calculated_signature == signature do
-        Logger.info("GitHub Webhook signature verified")
+        if Plug.Crypto.secure_compare(calculated_signature, signature) do
+          Logger.info("GitHub Webhook signature verified")
+          conn
+        else
+          Logger.error("Unable to verify GitHub Webhook signature")
+
+          conn
+          |> send_resp(:bad_request, "Signature failed")
+          |> halt()
+        end
+
+      [] ->
+        Logger.warning("GitHub Webhook missing signature header")
+
         conn
-      else
-        Logger.error("Unable to verify GitHub Webhook signature")
-
-        conn
-        |> send_resp(:bad_request, "Signature failed")
+        |> send_resp(:bad_request, "Missing signature")
         |> halt()
-      end
+
+      _ ->
+        Logger.error("GitHub Webhook invalid signature format")
+
+        conn
+        |> send_resp(:bad_request, "Invalid signature format")
+        |> halt()
     end
   end
 
   def call(conn, _), do: conn
-
-  defp read_whole_body(conn, read \\ "")
-
-  defp read_whole_body(conn, read) do
-    case read_body(conn) do
-      {:ok, body, conn} ->
-        {:ok, read <> body, conn}
-
-      {:more, body, conn} ->
-        read_whole_body(conn, read <> body)
-
-      {:error, error} ->
-        {:error, error}
-    end
-  end
 end

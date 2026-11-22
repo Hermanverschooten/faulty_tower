@@ -1,5 +1,15 @@
 defmodule FaultyTowerWeb.Helpers do
   use Phoenix.Component
+  import Phoenix.LiveView, only: [put_flash: 3]
+
+  @doc "Flashes `msg` as an error when an issue sync failed."
+  def sync_flash(socket, :ok, _msg), do: socket
+  def sync_flash(socket, {:error, _}, msg), do: put_flash(socket, :error, msg)
+
+  @doc "Unix seconds of a datetime, 0 for nil; used for stable DOM ids."
+  def unix(nil), do: 0
+  def unix(at), do: DateTime.to_unix(at)
+
   @doc false
   def sanitize_module(<<"Elixir.", str::binary>>), do: str
   def sanitize_module(str), do: str
@@ -28,7 +38,7 @@ defmodule FaultyTowerWeb.Helpers do
         :blue -> "bg-blue-900 text-blue-300"
         :gray -> "bg-gray-700 text-gray-300"
         :red -> "bg-red-200 text-red-700 ring-red-700"
-        :green -> "bg-emerald-200 text-emerald-700 ring-emerald-7000"
+        :green -> "bg-emerald-200 text-emerald-700 ring-emerald-700"
         :yellow -> "bg-yellow-900 text-yellow-300"
         :indigo -> "bg-indigo-900 text-indigo-300"
         :purple -> "bg-purple-900 text-purple-300"

@@ -1,30 +1,27 @@
 defmodule FaultyTowerWeb.ErrorLive do
+  alias FaultyTower.Forgejo
   alias FaultyTower.Github
   alias FaultyTower.Errors
   alias FaultyTower.Project
   use FaultyTowerWeb, :live_view
   import FaultyTowerWeb.Helpers
 
+  @popover_limit 50
+
   def mount(%{"project" => project_id, "id" => id}, _session, socket) do
     socket =
       with {:ok, project} <- Project.find(project_id, socket.assigns.current_user, :organization),
-           {:ok, error} <- Errors.fetch(id, :occurrences) do
-        occurrences =
-          error.occurrences
-          |> Enum.map(&{format_datetime(&1.inserted_at), &1.id})
-
-        [occurrence | _] = error.occurrences
-
+           {:ok, error} <- Errors.fetch(project.id, id) do
         if connected?(socket) do
           Phoenix.PubSub.subscribe(FaultyTower.PubSub, "error:#{id}")
         end
 
         socket
         |> assign(:project, project)
-        |> assign(:occurrence, occurrence)
+        |> assign(:forgejo_url, Forgejo.instance_url(project.organization))
         |> assign(:error, error)
-        |> assign(:occurrences, occurrences)
-        |> assign(:show_only, false)
+        |> assign(:occurrence_id, nil)
+        |> assign(:app_only, false)
       else
         {:error, :not_found} ->
           socket
@@ -35,172 +32,290 @@ defmodule FaultyTowerWeb.ErrorLive do
     {:ok, socket}
   end
 
-  def handle_params(%{"occurrence" => occurrence_id}, uri, socket) do
-    case Enum.find(
-           socket.assigns.error.occurrences,
-           &(to_string(&1.id) == to_string(occurrence_id))
-         ) do
-      nil ->
-        handle_params(%{}, uri, socket)
-
-      occurrence ->
-        {:noreply, socket |> assign(:occurrence, occurrence)}
-    end
+  def handle_params(params, _uri, %{assigns: %{error: _}} = socket) do
+    {:noreply,
+     socket
+     |> assign(:occurrence_id, params["occurrence"])
+     |> assign_occurrence()}
   end
 
-  def handle_params(_params, _uri, socket) do
-    [occurrence | _] = socket.assigns.error.occurrences
-    {:noreply, socket |> assign(:occurrence, occurrence)}
+  def handle_params(_params, _uri, socket), do: {:noreply, socket}
+
+  # Loads the viewed occurrence (the requested one, else the newest) with its
+  # position, neighbours and the newest occurrences for the popover.
+  defp assign_occurrence(socket) do
+    %{error: error, occurrence_id: occurrence_id} = socket.assigns
+    occurrence = Errors.get_occurrence(error.id, occurrence_id)
+    {newer, older} = Errors.occurrence_neighbours(occurrence)
+
+    socket
+    |> assign(:occurrence, occurrence)
+    |> assign(:occurrence_id, occurrence.id)
+    |> assign(:position, Errors.occurrence_position(occurrence))
+    |> assign(:newer_id, newer)
+    |> assign(:older_id, older)
+    |> assign(:recent, Errors.recent_occurrences(error.id, @popover_limit))
   end
 
   def render(assigns) do
     ~H"""
-    <.link
-      navigate={~p"/project/#{@project.key}"}
-      class="hover:text-blue-700 bg-gray-400 flex items-center p-2"
-    >
-      <.icon name="hero-chevron-double-left" class="w-3 h-3 mr-1" /> Back to list
-    </.link>
-    <h1 class="text-2xl font-semibold bg-gray-200 px-4 py-4 uppercase">
-      {@project.organization.name} - {@project.name}
-    </h1>
-    <div class="bg-gray-100 lg:p-4 text-gray-600">
-      <div class="uppercase font-bold">
-        Error #{@error.id} @ {format_datetime(@error.last_occurrence_at)}
-      </div>
-      <h1 class="text-2xl font-semibold whitespace-nowrap text-ellipsis w-full overflow-hidden">
-        ({sanitize_module(@error.kind)}) {@error.reason}
-      </h1>
+    <div class="text-sm text-zinc-500">
+      <.link navigate={~p"/project/#{@project.key}"} class="hover:text-zinc-900 hover:underline">
+        {@project.organization.name} / {@project.name}
+      </.link>
+    </div>
+    <h1 class="mt-1 text-2xl font-semibold break-words">{@error.reason}</h1>
+    <div class="text-sm text-zinc-500">{sanitize_module(@error.kind)} · #{@error.id}</div>
 
-      <div class="p-1 my-2 bg-gray-400 lg:p-4 grid grid-cols-1 lg:grid-cols-4 gap-2">
-        <div class="col-span-3">
-          <div class="text-gray-700 font-bold">FULL MESSAGE</div>
-          <div class="p-4 rounded-md bg-gray-600 text-white mb-4 mt-2 overflow-x-scroll">
-            {@occurrence.reason}
-          </div>
-          <div class="text-gray-700 font-bold">SOURCE</div>
-          <div class="p-4 rounded-md bg-gray-600 text-white mb-4 mt-2 overflow-x-scroll">
-            <p :if={has_source_info?(@error)} class="font-normal">
-              {sanitize_module(@error.source_function)}
-              <br />
-              {@error.source_line}
-            </p>
-          </div>
-          <div class="text-gray-700 font-bold">STACKTRACE</div>
-          <div class="p-4 rounded-md bg-gray-600 text-white mb-4 mt-2 overflow-x-scroll">
-            <div class="justify-center lg:justify-end flex items-center pb-4 lg:pb-0">
-              <label>
-                <input
-                  type="checkbox"
-                  class="bg-gray-600 rounded"
-                  checked={@show_only}
-                  phx-click="toggle-show"
-                /> Show only app frames
-              </label>
-            </div>
-            <table class="overflow-x-scroll table-fixed text-xs lg:text-base">
-              <tr :for={line <- filter(@occurrence.stacktrace.lines, @project.otp_app, @show_only)}>
-                <td class="align-top px-2">({line.application || "none"})</td>
-                <td>
-                  <div :if={line.module} class="text-nowrap">
-                    {line.module}.{line.function}/{line.arity}
-                  </div>
-                  <div :if={line.file} class="text-nowrap">
-                    {line.file}:{line.line}<.gh_link project={@project} line={line} />
-                  </div>
-                  <div :if={!line.file} class="text-nowrap">(no location)</div>
-                </td>
-              </tr>
-            </table>
-          </div>
-          <div class="text-gray-700 font-bold">CONTEXT</div>
-          <pre class="text-xs lg:text-base p-4 rounded-md bg-gray-600 text-white mb-4 mt-2 overflow-x-scroll"><%= inspect(@occurrence.context, pretty: true) %></pre>
+    <div class="mt-6 grid grid-cols-[1fr_auto] items-center gap-y-4 sm:w-fit">
+      <dl
+        id="error-header"
+        class="col-span-2 grid grid-cols-2 sm:grid-cols-4 gap-x-8 gap-y-3 text-sm"
+      >
+        <div>
+          <dt class="text-xs text-zinc-400">Status</dt>
+          <dd>
+            <span :if={@error.status == :unresolved} class="text-red-700">unresolved</span>
+            <span :if={@error.status == :resolved} class="text-emerald-700/70">resolved</span>
+          </dd>
         </div>
-        <div class="border-t-2 py-4 lg:border-t-0 lh:py-0 lg:border-l-2 lg:px-4 border-gray-600">
-          <div class="text-gray-700 font-bold">OCCURRENCES ({@error.count} TOTAL)</div>
-          <form for={} id="occurrence-selector-form" phx-change="select-occurrence">
-            <select
-              id="occurrence-selector"
-              name="occurrence"
-              class="mt-2 rounded bg-gray-600 text-white border-gray-300"
+        <div>
+          <dt class="text-xs text-zinc-400">First seen</dt>
+          <dd>
+            <.relative_time
+              id={"first-seen-#{unix(@error.inserted_at)}"}
+              at={@error.inserted_at}
+              format="exact"
+            />
+          </dd>
+        </div>
+        <div>
+          <dt class="text-xs text-zinc-400">Last seen</dt>
+          <dd>
+            <.relative_time
+              id={"last-seen-#{unix(@error.last_occurrence_at)}"}
+              at={@error.last_occurrence_at}
+              format="exact"
+            />
+          </dd>
+        </div>
+        <div>
+          <dt class="text-xs text-zinc-400">Issue</dt>
+          <dd id="issue">
+            <.link
+              :if={@error.gh_issue && @error.git_provider == "forgejo"}
+              href={"#{@forgejo_url}/#{Forgejo.issues_repo(@project)}/issues/#{@error.gh_issue}"}
+              target="_blank"
+              class="hover:underline"
             >
-              {Phoenix.HTML.Form.options_for_select(@occurrences, @occurrence.id)}
-            </select>
-          </form>
-          <div class="text-gray-700 font-bold mt-4">ERROR KIND</div>
-          <div class="text-white font-bold">{sanitize_module(@error.kind)}</div>
-          <div class="text-gray-700 font-bold mt-4">LAST SEEN</div>
-          <div class="text-white font-bold">{format_datetime(@error.last_occurrence_at)}</div>
-          <div class="text-gray-700 font-bold mt-4">FIRST SEEN</div>
-          <div class="text-white font-bold">{format_datetime(@error.inserted_at)}</div>
-          <div class="text-gray-700 font-bold mt-4">STATUS</div>
-
-          <div class="mt-2 mb-4">
-            <.badge :if={@error.status == :resolved} color={:green}>Resolved</.badge>
-            <.badge :if={@error.status == :unresolved} color={:red}>Unresolved</.badge>
-          </div>
-          <.button
-            :if={@error.status == :unresolved}
-            phx-click="resolve"
-            phx-value-error_id={@error.id}
-          >
-            Mark as resolved
-          </.button>
-
-          <.button
-            :if={@error.status == :resolved}
-            phx-click="unresolve"
-            phx-value-error_id={@error.id}
-          >
-            Unmark as resolved
-          </.button>
-          <.button
-            :if={Github.issues_repo(@project) && !@error.gh_issue}
-            type="button"
-            class="flex items-center hover:font-bold gap-2 mt-2"
-            phx-click="create-github-issue"
-          >
-            <svg viewBox="0 0 24 24" aria-hidden="true" class="size-6 fill-white">
-              <path
-                fill-rule="evenodd"
-                clip-rule="evenodd"
-                d="M12 2C6.477 2 2 6.463 2 11.97c0 4.404 2.865 8.14 6.839 9.458.5.092.682-.216.682-.48 0-.236-.008-.864-.013-1.695-2.782.602-3.369-1.337-3.369-1.337-.454-1.151-1.11-1.458-1.11-1.458-.908-.618.069-.606.069-.606 1.003.07 1.531 1.027 1.531 1.027.892 1.524 2.341 1.084 2.91.828.092-.643.35-1.083.636-1.332-2.22-.251-4.555-1.107-4.555-4.927 0-1.088.39-1.979 1.029-2.675-.103-.252-.446-1.266.098-2.638 0 0 .84-.268 2.75 1.022A9.607 9.607 0 0 1 12 6.82c.85.004 1.705.114 2.504.336 1.909-1.29 2.747-1.022 2.747-1.022.546 1.372.202 2.386.1 2.638.64.696 1.028 1.587 1.028 2.675 0 3.83-2.339 4.673-4.566 4.92.359.307.678.915.678 1.846 0 1.332-.012 2.407-.012 2.734 0 .267.18.577.688.48 3.97-1.32 6.833-5.054 6.833-9.458C22 6.463 17.522 2 12 2Z"
+              Forgejo #{@error.gh_issue}
+            </.link>
+            <.link
+              :if={@error.gh_issue && @error.git_provider != "forgejo"}
+              href={"https://github.com/#{Github.issues_repo(@project)}/issues/#{@error.gh_issue}"}
+              target="_blank"
+              class="hover:underline"
+            >
+              GitHub #{@error.gh_issue}
+            </.link>
+            <button
+              :if={!@error.gh_issue && create_provider(@project) == :github}
+              type="button"
+              class="text-zinc-500 hover:text-zinc-900"
+              phx-click="create-github-issue"
+            >
+              Create issue
+            </button>
+            <button
+              :if={!@error.gh_issue && create_provider(@project) == :forgejo}
+              type="button"
+              class="text-zinc-500 hover:text-zinc-900"
+              phx-click="create-forgejo-issue"
+            >
+              Create issue
+            </button>
+            <span :if={!@error.gh_issue && !create_provider(@project)} class="text-zinc-400">–</span>
+          </dd>
+        </div>
+      </dl>
+      <div class="col-[1/-1] row-start-2 h-full rounded-md border border-gray-200 bg-white"></div>
+      <button
+        :if={@error.status == :unresolved}
+        type="button"
+        class="col-start-2 row-start-2 justify-self-end pr-3 text-sm text-zinc-500 underline decoration-zinc-300 underline-offset-4 hover:text-zinc-900"
+        phx-click="resolve"
+        phx-value-error_id={@error.id}
+      >
+        Resolve
+      </button>
+      <button
+        :if={@error.status == :resolved}
+        type="button"
+        class="col-start-2 row-start-2 justify-self-end pr-3 text-sm text-zinc-500 underline decoration-zinc-300 underline-offset-4 hover:text-zinc-900"
+        phx-click="unresolve"
+        phx-value-error_id={@error.id}
+      >
+        Reopen
+      </button>
+      <div
+        id="stepper"
+        style="anchor-name: --occurrences"
+        class="col-start-1 row-start-2 flex items-center gap-1 px-2 py-2 text-sm"
+      >
+        <.stepper_arrow
+          id="occurrence-newer"
+          to={@newer_id && ~p"/project/#{@project.key}/#{@error.id}/#{@newer_id}"}
+          label="Newer occurrence"
+          glyph="‹"
+        />
+        <span id="occurrence-position" class="text-zinc-700">
+          Occurrence {@position} of {@error.count}
+        </span>
+        <.stepper_arrow
+          id="occurrence-older"
+          to={@older_id && ~p"/project/#{@project.key}/#{@error.id}/#{@older_id}"}
+          label="Older occurrence"
+          glyph="›"
+        />
+        <button
+          type="button"
+          popovertarget="occurrences-menu"
+          class="ml-2 text-zinc-500 underline decoration-zinc-300 underline-offset-4 hover:text-zinc-900 cursor-pointer"
+        >
+          List
+        </button>
+        <div
+          id="occurrences-menu"
+          popover
+          style="position-anchor: --occurrences; position-area: bottom span-right"
+          class="inset-auto m-0 mt-1 max-h-80 w-72 max-w-[calc(100vw-2rem)] overflow-y-auto rounded-md border border-gray-200 bg-white p-3 text-sm shadow-sm"
+        >
+          <ul class="flex flex-col gap-2">
+            <li :for={occ <- @recent} class="flex items-baseline gap-2">
+              <.link
+                patch={~p"/project/#{@project.key}/#{@error.id}/#{occ.id}"}
+                data-occurrence={occ.id}
+                data-current={occ.id == @occurrence.id}
+                class={[
+                  "flex flex-1 flex-wrap gap-x-2 hover:underline",
+                  (occ.id == @occurrence.id && "text-zinc-900 font-medium") || "text-zinc-700"
+                ]}
               >
-              </path>
-            </svg>
-            Create Issue
-          </.button>
-          <.link
-            :if={@error.gh_issue}
-            href={"https://github.com/#{Github.issues_repo(@project)}/issues/#{@error.gh_issue}"}
-            target="_blank"
+                <.relative_time id={"occ-time-#{occ.id}"} at={occ.inserted_at} format="exact" />
+              </.link>
+              <span :if={occ.id == @occurrence.id} class="text-xs text-zinc-400">current</span>
+            </li>
+          </ul>
+          <div
+            :if={@error.count > length(@recent)}
+            id="occurrences-capped"
+            class="mt-2 text-xs text-zinc-400"
           >
-            <.button type="button" class="flex items-center hover:font-bold gap-2 mt-2">
-              <svg viewBox="0 0 24 24" aria-hidden="true" class="size-6 fill-white">
-                <path
-                  fill-rule="evenodd"
-                  clip-rule="evenodd"
-                  d="M12 2C6.477 2 2 6.463 2 11.97c0 4.404 2.865 8.14 6.839 9.458.5.092.682-.216.682-.48 0-.236-.008-.864-.013-1.695-2.782.602-3.369-1.337-3.369-1.337-.454-1.151-1.11-1.458-1.11-1.458-.908-.618.069-.606.069-.606 1.003.07 1.531 1.027 1.531 1.027.892 1.524 2.341 1.084 2.91.828.092-.643.35-1.083.636-1.332-2.22-.251-4.555-1.107-4.555-4.927 0-1.088.39-1.979 1.029-2.675-.103-.252-.446-1.266.098-2.638 0 0 .84-.268 2.75 1.022A9.607 9.607 0 0 1 12 6.82c.85.004 1.705.114 2.504.336 1.909-1.29 2.747-1.022 2.747-1.022.546 1.372.202 2.386.1 2.638.64.696 1.028 1.587 1.028 2.675 0 3.83-2.339 4.673-4.566 4.92.359.307.678.915.678 1.846 0 1.332-.012 2.407-.012 2.734 0 .267.18.577.688.48 3.97-1.32 6.833-5.054 6.833-9.458C22 6.463 17.522 2 12 2Z"
-                >
-                </path>
-              </svg>
-              GitHub Issue
-            </.button>
-          </.link>
+            showing {length(@recent)} of {@error.count}
+          </div>
         </div>
       </div>
     </div>
+
+    <section class="mt-8">
+      <h2 class="text-xs text-zinc-400">Message</h2>
+      <pre id="message" class="mt-1 font-mono text-sm whitespace-pre-wrap break-words">{@occurrence.reason}</pre>
+    </section>
+
+    <section :if={has_source_info?(@error)} class="mt-6">
+      <h2 class="text-xs text-zinc-400">Source</h2>
+      <pre id="source" class="mt-1 font-mono text-sm whitespace-pre-wrap break-words">{sanitize_module(@error.source_function)} {@error.source_line}</pre>
+    </section>
+
+    <section class="mt-6">
+      <div class="flex items-center gap-3">
+        <h2 class="text-xs text-zinc-400">Stacktrace</h2>
+        <button
+          type="button"
+          id="toggle-app-frames"
+          phx-click="toggle-app-frames"
+          class="text-xs text-zinc-500 underline"
+        >
+          {if @app_only, do: "Show all frames", else: "Show only app frames"}
+        </button>
+      </div>
+      <div id="stacktrace" class="mt-1 font-mono text-xs sm:text-sm">
+        <div
+          :for={{line, index} <- frames(@occurrence, @project, @app_only)}
+          :key={index}
+          data-frame={if app_frame?(line, @project), do: "app", else: "lib"}
+          class={[
+            "flex gap-3 py-0.5",
+            (app_frame?(line, @project) && "text-zinc-900") || "text-zinc-400"
+          ]}
+        >
+          <span class="w-16 shrink-0 break-words text-zinc-400">{line.application || "–"}</span>
+          <div class="min-w-0 flex-1">
+            <div :if={line.module} class="break-words">
+              {line.module}.{line.function}/{line.arity}
+            </div>
+            <div :if={line.file} class="break-words">
+              {line.file}:{line.line}<.gh_link
+                :if={app_frame?(line, @project)}
+                project={@project}
+                line={line}
+                forgejo_url={@forgejo_url}
+              />
+            </div>
+            <div :if={!line.file}>(no location)</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="mt-6">
+      <h2 class="text-xs text-zinc-400">Context</h2>
+      <pre
+        id="context"
+        class="mt-1 font-mono text-xs sm:text-sm whitespace-pre-wrap break-words"
+      ><%= inspect(@occurrence.context, pretty: true, limit: :infinity, printable_limit: :infinity) %></pre>
+    </section>
     """
+  end
+
+  defp frames(occurrence, project, app_only) do
+    occurrence.stacktrace.lines
+    |> Enum.with_index()
+    |> Enum.filter(fn {line, _} -> !app_only or app_frame?(line, project) end)
+  end
+
+  defp app_frame?(line, project), do: line.application == project.otp_app
+
+  defp create_provider(project) do
+    cond do
+      project.git_provider == "github" && Github.issues_repo(project) -> :github
+      Forgejo.configured?(project) -> :forgejo
+      true -> nil
+    end
   end
 
   attr :project, :any, required: true
   attr :line, :string, required: true
+  attr :forgejo_url, :string, required: true
 
   def gh_link(assigns) do
     ~H"""
     <.link
-      :if={@project.github && @project.otp_app == @line.application}
-      href={"https://github.com/#{@project.github.repo}/tree/#{@project.github.branch}/#{@line.file}#L#{@line.line}"}
+      :if={
+        @project.git_provider == "github" && @project.repository &&
+          @project.otp_app == @line.application
+      }
+      href={"https://github.com/#{@project.repository.repo}/tree/#{@project.repository.branch || "main"}/#{@line.file}#L#{@line.line}"}
+      target="_blank"
+    >
+      <.icon name="hero-link" class="ml-1 h-4 w-4" />
+    </.link>
+    <.link
+      :if={
+        @project.git_provider == "forgejo" && @project.repository &&
+          @project.otp_app == @line.application
+      }
+      href={"#{@forgejo_url}/#{@project.repository.repo}/src/branch/#{@project.repository.branch || "main"}/#{@line.file}#L#{@line.line}"}
       target="_blank"
     >
       <.icon name="hero-link" class="ml-1 h-4 w-4" />
@@ -208,96 +323,117 @@ defmodule FaultyTowerWeb.ErrorLive do
     """
   end
 
-  def handle_event("toggle-show", _params, socket) do
-    {:noreply, socket |> assign(:show_only, !socket.assigns.show_only)}
+  attr :id, :string, required: true
+  attr :to, :string, default: nil
+  attr :label, :string, required: true
+  attr :glyph, :string, required: true
+
+  defp stepper_arrow(assigns) do
+    ~H"""
+    <.link
+      :if={@to}
+      id={@id}
+      patch={@to}
+      aria-label={@label}
+      class="inline-block w-5 text-center text-zinc-700 hover:text-zinc-900"
+    >
+      {@glyph}
+    </.link>
+    <span
+      :if={!@to}
+      id={@id}
+      aria-disabled="true"
+      class="inline-block w-5 text-center text-zinc-300"
+    >
+      {@glyph}
+    </span>
+    """
   end
 
-  def handle_event("select-occurrence", %{"occurrence" => occurrence_id}, socket) do
-    {:noreply,
-     socket
-     |> push_patch(
-       to: ~p"/project/#{socket.assigns.project.key}/#{socket.assigns.error.id}/#{occurrence_id}"
-     )}
+  def handle_event("toggle-app-frames", _params, socket) do
+    {:noreply, update(socket, :app_only, &(!&1))}
   end
 
-  def handle_event("resolve", %{"error_id" => error_id}, socket) do
+  def handle_event("resolve", _params, socket) do
+    %{project: project, error: error, current_user: current_user} = socket.assigns
+
     socket =
-      with :ok <- Errors.resolve(error_id, :resolved) do
-        %{project: project, error: error, current_user: current_user} = socket.assigns
+      with {:ok, error} <- Errors.resolve(project.id, error.id, :resolved) do
+        sync = Errors.sync_issue(project, error, current_user, :resolved)
 
-        if error.gh_issue, do: Github.close_issue(project, error.gh_issue, current_user)
-
-        Phoenix.PubSub.broadcast(FaultyTower.PubSub, "error:#{socket.assigns.error.id}", :refresh)
+        Phoenix.PubSub.broadcast(FaultyTower.PubSub, "error:#{error.id}", :refresh)
 
         Phoenix.PubSub.broadcast(
           FaultyTower.PubSub,
-          "project:#{socket.assigns.project.key}",
-          {:refresh, error_id}
+          "project:#{project.key}",
+          {:refresh, error.id}
         )
 
-        socket
+        sync_flash(socket, sync, "Resolved, but closing the issue failed")
       else
-        :error ->
-          socket
-          |> put_flash(:error, "I could not mark the error as unresolved!")
+        {:error, :not_found} -> socket
       end
 
     {:noreply, socket}
   end
 
-  def handle_event("unresolve", %{"error_id" => error_id}, socket) do
+  def handle_event("unresolve", _params, socket) do
+    %{project: project, error: error, current_user: current_user} = socket.assigns
+
     socket =
-      with :ok <- Errors.resolve(error_id, :unresolved) do
-        Phoenix.PubSub.broadcast(FaultyTower.PubSub, "error:#{socket.assigns.error.id}", :refresh)
+      with {:ok, error} <- Errors.resolve(project.id, error.id, :unresolved) do
+        sync = Errors.sync_issue(project, error, current_user, :unresolved)
+
+        Phoenix.PubSub.broadcast(FaultyTower.PubSub, "error:#{error.id}", :refresh)
 
         Phoenix.PubSub.broadcast(
           FaultyTower.PubSub,
-          "project:#{socket.assigns.project.key}",
-          {:refresh, error_id}
+          "project:#{project.key}",
+          {:refresh, error.id}
         )
 
-        socket
+        sync_flash(socket, sync, "Reopened, but reopening the issue failed")
       else
-        :error ->
-          socket
-          |> put_flash(:error, "I could not mark the error as unresolved!")
+        {:error, :not_found} -> socket
       end
 
     {:noreply, socket}
   end
 
   def handle_event("create-github-issue", _params, socket) do
-    %{error: error, project: project, occurrence: occurrence} = socket.assigns
+    %{error: error} = socket.assigns
 
-    with {:ok, number} <-
-           Github.create_issue(
-             project,
-             error,
-             occurrence,
-             url(~p"/project/#{project.key}/#{error.id}/#{occurrence.id}")
-           ),
-         :ok <- Errors.set_github_issue(error.id, number) do
-      Phoenix.PubSub.broadcast(FaultyTower.PubSub, "error:#{error.id}", :refresh)
-
-      Phoenix.PubSub.broadcast(
-        FaultyTower.PubSub,
-        "project:#{socket.assigns.project.key}",
-        {:refresh, error.id}
-      )
-
-      socket
-    else
-      :error ->
+    case Errors.create_github_issue(error) do
+      {:ok, number} ->
         socket
-        |> put_flash(:error, "Failed to create issue")
+        |> put_flash(:info, "GitHub Issue ##{number} created")
+
+      {:error, _reason} ->
+        socket
+        |> put_flash(:error, "Failed to create GitHub issue")
+    end
+    |> noreply()
+  end
+
+  def handle_event("create-forgejo-issue", _params, socket) do
+    %{error: error} = socket.assigns
+
+    case Errors.create_forgejo_issue(error) do
+      {:ok, number} ->
+        socket
+        |> put_flash(:info, "Forgejo Issue ##{number} created")
+
+      {:error, _reason} ->
+        socket
+        |> put_flash(:error, "Failed to create Forgejo issue")
     end
     |> noreply()
   end
 
   def handle_info(:refresh, socket) do
     socket =
-      with {:ok, error} <- Errors.fetch(socket.assigns.error.id, :occurrences) do
-        socket |> assign(:error, error)
+      with {:ok, error} <- Errors.fetch(socket.assigns.project.id, socket.assigns.error.id) do
+        socket |> assign(:error, error) |> assign_occurrence()
       else
         {:error, :not_found} ->
           socket
@@ -306,11 +442,5 @@ defmodule FaultyTowerWeb.ErrorLive do
       end
 
     {:noreply, socket}
-  end
-
-  defp filter(lines, _opt_app, false), do: lines
-
-  defp filter(lines, otp_app, true) do
-    Enum.filter(lines, &(&1.application == otp_app))
   end
 end

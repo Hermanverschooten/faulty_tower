@@ -5,26 +5,40 @@ defmodule FaultyTowerWeb.UserConfirmationLive do
 
   def render(%{live_action: :edit} = assigns) do
     ~H"""
-    <div class="mx-auto max-w-sm">
-      <.header class="text-center">Confirm Account</.header>
+    <.sheet centered class="mt-10">
+      <h1 class="text-lg font-semibold leading-tight text-balance text-zinc-900">Confirm Account</h1>
 
-      <.simple_form for={@form} id="confirmation_form" phx-submit="confirm_account">
+      <.simple_form for={@form} id="confirmation_form" phx-submit="confirm_account" class="mt-6">
         <input type="hidden" name={@form[:token].name} value={@form[:token].value} />
         <:actions>
           <.button phx-disable-with="Confirming..." class="w-full">Confirm my account</.button>
         </:actions>
+        <:actions>
+          <.link href={~p"/users/log_in"} class="mx-auto text-sm text-zinc-500 hover:text-zinc-900">
+            Log in
+          </.link>
+        </:actions>
       </.simple_form>
-
-      <p class="text-center mt-4">
-        <.link href={~p"/users/log_in"}>Log in</.link>
-      </p>
-    </div>
+    </.sheet>
     """
   end
 
   def mount(%{"token" => token}, _session, socket) do
-    form = to_form(%{"token" => token}, as: "user")
-    {:ok, assign(socket, form: form), temporary_assigns: [form: nil]}
+    cond do
+      Authentication.get_user_by_confirmation_token(token) ->
+        form = to_form(%{"token" => token}, as: "user")
+        {:ok, assign(socket, form: form), temporary_assigns: [form: nil]}
+
+      # A used link revisited by a confirmed user: no warning, as on submit.
+      match?(%{confirmed_at: %DateTime{}}, socket.assigns[:current_user]) ->
+        {:ok, redirect(socket, to: ~p"/")}
+
+      true ->
+        {:ok,
+         socket
+         |> put_flash(:error, "User confirmation link is invalid or it has expired.")
+         |> redirect(to: ~p"/users/log_in")}
+    end
   end
 
   # Do not log in the user after confirmation to avoid a
@@ -50,7 +64,7 @@ defmodule FaultyTowerWeb.UserConfirmationLive do
             {:noreply,
              socket
              |> put_flash(:error, "User confirmation link is invalid or it has expired.")
-             |> redirect(to: ~p"/")}
+             |> redirect(to: ~p"/users/log_in")}
         end
     end
   end

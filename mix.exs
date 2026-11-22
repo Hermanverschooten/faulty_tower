@@ -44,7 +44,9 @@ defmodule FaultyTower.MixProject do
       {:lazy_html, ">= 0.1.0", only: :test},
       {:phoenix_live_dashboard, "~> 0.9"},
       {:esbuild, "~> 0.8", runtime: Mix.env() == :dev},
-      {:tailwind, "~> 0.2", runtime: Mix.env() == :dev},
+      {:tailwind, "~> 0.5", runtime: Mix.env() == :dev},
+      {:remote_ip, "~> 1.2"},
+      {:req, "~> 0.7"},
       {:heroicons,
        github: "tailwindlabs/heroicons",
        tag: "v2.1.1",
@@ -61,7 +63,6 @@ defmodule FaultyTower.MixProject do
       {:jason, "~> 1.2"},
       {:bandit, "~> 1.5"},
       {:site_encrypt, "~> 0.7"},
-      {:phx_2_ban, "~> 0.1", repo: "ezsuite"},
       {:joken, "~> 2.6"},
       {:vancouver, "~> 0.3"},
       {:mimic, "~> 2.0", only: :test}

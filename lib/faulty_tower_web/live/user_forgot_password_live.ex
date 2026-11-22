@@ -5,24 +5,28 @@ defmodule FaultyTowerWeb.UserForgotPasswordLive do
 
   def render(assigns) do
     ~H"""
-    <div class="mx-auto max-w-sm">
-      <.header class="text-center">
+    <.sheet centered class="mt-10">
+      <h1 class="text-lg font-semibold leading-tight text-balance text-zinc-900">
         Forgot your password?
-        <:subtitle>We'll send a password reset link to your inbox</:subtitle>
-      </.header>
+      </h1>
+      <p class="mt-1 text-sm text-balance text-zinc-500">
+        We'll send a password reset link to your inbox
+      </p>
 
-      <.simple_form for={@form} id="reset_password_form" phx-submit="send_email">
-        <.input field={@form[:email]} type="email" placeholder="Email" required />
+      <.simple_form for={@form} id="reset_password_form" phx-submit="send_email" class="mt-6">
+        <.input field={@form[:email]} type="email" label="Email" required />
         <:actions>
           <.button phx-disable-with="Sending..." class="w-full">
             Send password reset instructions
           </.button>
         </:actions>
+        <:actions>
+          <.link href={~p"/users/log_in"} class="mx-auto text-sm text-zinc-500 hover:text-zinc-900">
+            Log in
+          </.link>
+        </:actions>
       </.simple_form>
-      <p class="text-center text-sm mt-4">
-        <.link href={~p"/users/log_in"}>Log in</.link>
-      </p>
-    </div>
+    </.sheet>
     """
   end
 
@@ -44,6 +48,6 @@ defmodule FaultyTowerWeb.UserForgotPasswordLive do
     {:noreply,
      socket
      |> put_flash(:info, info)
-     |> redirect(to: ~p"/")}
+     |> redirect(to: ~p"/users/log_in")}
   end
 end

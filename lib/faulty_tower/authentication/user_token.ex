@@ -129,6 +129,10 @@ defmodule FaultyTower.Authentication.UserToken do
   defp days_for_context("confirm"), do: @confirm_validity_in_days
   defp days_for_context("reset_password"), do: @reset_password_validity_in_days
 
+  def confirm_validity_in_days, do: @confirm_validity_in_days
+  def reset_password_validity_in_days, do: @reset_password_validity_in_days
+  def change_email_validity_in_days, do: @change_email_validity_in_days
+
   @doc """
   Checks if the token is valid and returns its underlying lookup query.
 

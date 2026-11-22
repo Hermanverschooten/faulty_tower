@@ -19,14 +19,7 @@ defmodule FaultyTowerWeb.Plugs.MCPAuth do
   end
 
   defp authenticate_token(token) do
-    # Try to decode base64 token first, fall back to raw token
-    decoded_token =
-      case Base.decode64(token) do
-        {:ok, decoded} -> decoded
-        :error -> token
-      end
-
-    case Authentication.get_user_by_session_token(decoded_token) do
+    case Authentication.get_user_by_mcp_token(token) do
       nil -> {:error, :invalid_token}
       user -> {:ok, user}
     end

@@ -12,7 +12,7 @@ defmodule FaultyTower.MCPTools.ListErrors do
       "properties" => %{
         "project_id" => %{
           "type" => "string",
-          "description" => "The project ID to list errors for"
+          "description" => "The project UUID key"
         },
         "status" => %{
           "type" => "string",
@@ -30,37 +30,39 @@ defmodule FaultyTower.MCPTools.ListErrors do
 
   def run(conn, params) do
     user = get_user_from_conn(conn)
-    project_id = params["project_id"]
+    project_key = params["project_id"]
     status = params["status"] || "unresolved"
     limit = params["limit"] || 20
 
-    case Project.get_user_project(user, String.to_integer(project_id)) do
-      {:ok, project} ->
-        errors = Errors.list_project_errors(project, status, limit)
+    with :ok <- validate_uuid(project_key),
+         {:ok, project} <- Project.get_user_project(user, project_key) do
+      errors = Errors.list_project_errors(project, status, limit)
 
-        result = %{
-          "project" => %{
-            "id" => project.id,
-            "name" => project.name,
-            "key" => project.key
-          },
-          "errors" =>
-            Enum.map(errors, fn error ->
-              %{
-                "id" => error.id,
-                "fingerprint" => error.fingerprint,
-                "reason" => error.reason,
-                "status" => error.status,
-                "occurrence_count" => Map.get(error, :occurrence_count, 0),
-                "first_occurrence" => error.inserted_at,
-                "last_occurrence" => error.last_occurrence_at,
-                "github_issue_url" => error.gh_issue,
-                "context_summary" => summarize_error_context(error)
-              }
-            end)
-        }
+      result = %{
+        "project" => %{
+          "project_id" => project.key,
+          "name" => project.name
+        },
+        "errors" =>
+          Enum.map(errors, fn error ->
+            %{
+              "id" => error.id,
+              "fingerprint" => error.fingerprint,
+              "reason" => error.reason,
+              "status" => error.status,
+              "occurrence_count" => Map.get(error, :occurrence_count, 0),
+              "first_occurrence" => error.inserted_at,
+              "last_occurrence" => error.last_occurrence_at,
+              "github_issue_url" => error.gh_issue,
+              "context_summary" => summarize_error_context(error)
+            }
+          end)
+      }
 
-        send_json(conn, result)
+      send_json(conn, result)
+    else
+      {:error, :invalid_uuid} ->
+        send_error(conn, "Invalid project UUID format")
 
       {:error, :not_found} ->
         send_error(conn, "Project not found or access denied")
@@ -70,6 +72,15 @@ defmodule FaultyTower.MCPTools.ListErrors do
   defp get_user_from_conn(conn) do
     conn.assigns[:current_user]
   end
+
+  defp validate_uuid(uuid) when is_binary(uuid) do
+    case Ecto.UUID.cast(uuid) do
+      {:ok, _} -> :ok
+      :error -> {:error, :invalid_uuid}
+    end
+  end
+
+  defp validate_uuid(_), do: {:error, :invalid_uuid}
 
   defp summarize_error_context(error) do
     latest_occurrence = List.first(error.occurrences || [])
@@ -101,14 +112,17 @@ defmodule FaultyTower.MCPTools.ListErrors do
 
   defp extract_user_info(context) do
     case context["user"] do
-      nil ->
-        nil
-
-      user ->
+      user when is_map(user) ->
         %{
           "id" => user["id"],
           "email" => user["email"]
         }
+
+      user when is_binary(user) ->
+        user
+
+      _ ->
+        nil
     end
   end
 end

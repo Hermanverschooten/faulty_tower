@@ -1,6 +1,6 @@
 {
   "context": {
-    "email": "herman@octarion.eu",
+    "email": "user@example.com",
     "id": 1,
     "live_view.view": "Elixir.AdminWeb.DocumentsLive.Show",
     "request.headers": {
@@ -8,18 +8,18 @@
       "accept-encoding": "gzip, deflate, br",
       "accept-language": "nl-NL,nl;q=0.9",
       "cache-control": "max-age=0",
-      "host": "admin.octarion.test",
+      "host": "admin.example.test",
       "priority": "u=0, i",
-      "referer": "https://admin.octarion.test/document/930",
+      "referer": "https://admin.example.test/document/930",
       "sec-fetch-dest": "document",
       "sec-fetch-mode": "navigate",
       "sec-fetch-site": "same-origin",
       "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.1.1 Safari/605.1.15",
       "x-forwarded-for": "::1",
-      "x-forwarded-host": "admin.octarion.test",
+      "x-forwarded-host": "admin.example.test",
       "x-forwarded-proto": "https"
     },
-    "request.host": "admin.octarion.test",
+    "request.host": "admin.example.test",
     "request.ip": "::1",
     "request.method": "GET",
     "request.params": {
@@ -27,7 +27,7 @@
     },
     "request.path": "/document/930",
     "request.query": "",
-    "username": "herman"
+    "username": "user"
   },
   "error": {
     "fingerprint": "A5B3E7BF0E1AC9AF35A7C2160AFA7390E78BD3CC87E5BAC2D3557A5A63E9781B",

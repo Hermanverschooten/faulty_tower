@@ -13,7 +13,6 @@ defmodule FaultyTower.Application do
       {Phoenix.PubSub, name: FaultyTower.PubSub},
       # Run the migrations
       {Task, &migrate/0},
-      {Phx2Ban, router: FaultyTowerWeb.Router},
       # Start a worker by calling: FaultyTower.Worker.start_link(arg)
       # {FaultyTower.Worker, arg},
       # Start to serve requests, typically the last entry

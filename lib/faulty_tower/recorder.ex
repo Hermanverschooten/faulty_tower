@@ -15,8 +15,14 @@ defmodule FaultyTower.Recorder do
       }) do
     with {:ok, project_id} <- Ecto.UUID.cast(project_id),
          {:ok, project} <- Project.fetch_by_key(project_id) do
-      error = Map.put(error, "project_id", project.id)
-      upsert_error(error, stacktrace, context, reason)
+      error = error |> strip_null_bytes() |> Map.put("project_id", project.id)
+
+      upsert_error(
+        error,
+        strip_null_bytes(stacktrace),
+        strip_null_bytes(context),
+        strip_null_bytes(reason)
+      )
     end
   end
 
@@ -86,4 +92,12 @@ defmodule FaultyTower.Recorder do
       ]
     })
   end
+
+  defp strip_null_bytes(binary) when is_binary(binary), do: String.replace(binary, "\u0000", "")
+
+  defp strip_null_bytes(map) when is_map(map),
+    do: Map.new(map, fn {k, v} -> {k, strip_null_bytes(v)} end)
+
+  defp strip_null_bytes(list) when is_list(list), do: Enum.map(list, &strip_null_bytes/1)
+  defp strip_null_bytes(other), do: other
 end

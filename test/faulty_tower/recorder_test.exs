@@ -35,6 +35,24 @@ defmodule FaultyTower.RecorderTest do
     assert {:ok, _} = Recorder.notify(error)
   end
 
+  test "record error report containing null bytes" do
+    assert {:ok, org} = Organization.create("test")
+    assert {:ok, project} = Project.create("test", org.id, "test")
+
+    data =
+      data()
+      |> Map.put("project_id", project.key)
+      |> Map.put("reason", "no function clause matching\u0000 in Date.convert/2")
+      |> update_in(["context", "username"], &(&1 <> "\u0000"))
+      |> update_in(["error", "reason"], &(&1 <> "\u0000"))
+
+    assert {:ok, {error, occurrence}} = Recorder.record(data)
+
+    refute String.contains?(error.reason, "\u0000")
+    refute String.contains?(occurrence.reason, "\u0000")
+    refute String.contains?(occurrence.context["username"], "\u0000")
+  end
+
   test "Do not notify on existing error if previous occurrence is younger than 6 hours" do
     assert {:ok, org} = Organization.create("test")
     assert {:ok, project} = Project.create("test", org.id, "test")

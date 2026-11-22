@@ -12,6 +12,15 @@ defmodule FaultyTowerWeb.UserLoginLiveTest do
       assert html =~ "Forgot your password?"
     end
 
+    test "renders the form on a centred sheet with only the wordmark in the nav", %{conn: conn} do
+      {:ok, lv, html} = live(conn, ~p"/users/log_in")
+
+      assert has_element?(lv, "main .mx-auto.max-w-lg h1", "Log in")
+      assert has_element?(lv, "main .max-w-lg form#login_form")
+      assert has_element?(lv, "main a", "Forgot your password?")
+      refute html =~ ~s(href="/users/log_in")
+    end
+
     test "redirects if already logged in", %{conn: conn} do
       result =
         conn
@@ -64,7 +73,7 @@ defmodule FaultyTowerWeb.UserLoginLiveTest do
 
       {:ok, conn} =
         lv
-        |> element(~s|main a[href="/users/reset_password"]|)
+        |> element("main a", "Forgot your password?")
         |> render_click()
         |> follow_redirect(conn, ~p"/users/reset_password")
 

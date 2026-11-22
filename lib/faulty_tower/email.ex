@@ -10,7 +10,7 @@ defmodule FaultyTower.Email do
 
     new()
     |> to(recipients(error))
-    |> from({"Faulty Tower", "info@faultytower.com"})
+    |> from({"Faulty Tower", "info@Octarion.eu"})
     |> subject("Error in #{error.project.name}: #{String.slice(error.reason, 0, 256)}")
     |> html_body(html)
     |> text_body(text)

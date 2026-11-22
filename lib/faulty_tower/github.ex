@@ -115,9 +115,10 @@ defmodule FaultyTower.Github do
     end
   end
 
-  def issues_repo(%{github: nil}), do: nil
-  def issues_repo(%{github: %{issue_repo: nil, repo: repo}}), do: repo
-  def issues_repo(%{github: %{issue_repo: repo}}), do: repo
+  def issues_repo(%{repository: nil}), do: nil
+  def issues_repo(%{repository: %{issue_repo: nil, repo: repo}}), do: repo
+  def issues_repo(%{repository: %{issue_repo: repo}}) when is_binary(repo), do: repo
+  def issues_repo(%{repository: %{repo: repo}}), do: repo
 
   def create_issue(project, title, body) do
     repo = issues_repo(project)

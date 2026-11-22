@@ -5,35 +5,32 @@ defmodule FaultyTowerWeb.UserSettingsLive do
 
   def render(assigns) do
     ~H"""
-    <.header class="text-center">
-      Account Settings
-      <:subtitle>Manage your account email address, password, and MCP access</:subtitle>
-    </.header>
+    <h1 class="mt-1 text-2xl font-semibold text-balance">Account settings</h1>
+    <div class="mb-6 text-sm text-zinc-500">{@current_email}</div>
+    <.sheet>
+      <.simple_form
+        for={@email_form}
+        id="email_form"
+        phx-submit="update_email"
+        phx-change="validate_email"
+      >
+        <h2 class="text-sm font-medium text-zinc-500">Email</h2>
+        <.input field={@email_form[:email]} type="email" label="Email" required />
+        <.input
+          field={@email_form[:current_password]}
+          name="current_password"
+          id="current_password_for_email"
+          type="password"
+          label="Current password"
+          value={@email_form_current_password}
+          required
+        />
+        <:actions>
+          <.button phx-disable-with="Changing...">Change Email</.button>
+        </:actions>
+      </.simple_form>
 
-    <div class="space-y-12 divide-y">
-      <div>
-        <.simple_form
-          for={@email_form}
-          id="email_form"
-          phx-submit="update_email"
-          phx-change="validate_email"
-        >
-          <.input field={@email_form[:email]} type="email" label="Email" required />
-          <.input
-            field={@email_form[:current_password]}
-            name="current_password"
-            id="current_password_for_email"
-            type="password"
-            label="Current password"
-            value={@email_form_current_password}
-            required
-          />
-          <:actions>
-            <.button phx-disable-with="Changing...">Change Email</.button>
-          </:actions>
-        </.simple_form>
-      </div>
-      <div>
+      <div class="mt-8 border-t border-gray-200 pt-6">
         <.simple_form
           for={@password_form}
           id="password_form"
@@ -43,6 +40,7 @@ defmodule FaultyTowerWeb.UserSettingsLive do
           phx-submit="update_password"
           phx-trigger-action={@trigger_submit}
         >
+          <h2 class="text-sm font-medium text-zinc-500">Password</h2>
           <input
             name={@password_form[:email].name}
             type="hidden"
@@ -70,37 +68,46 @@ defmodule FaultyTowerWeb.UserSettingsLive do
         </.simple_form>
       </div>
 
-      <div class="pt-6">
-        <h3 class="text-base font-semibold leading-7 text-gray-900">MCP Server Access</h3>
-        <p class="mt-1 text-sm leading-6 text-gray-600">
+      <div class="mt-8 border-t border-gray-200 pt-6">
+        <h2 class="text-sm font-medium text-zinc-500">MCP token</h2>
+        <p class="mt-1 text-sm text-zinc-500">
           Use this token to authenticate with the FaultyTower MCP server for AI assistants.
         </p>
-        <div class="mt-4">
-          <div class="flex items-center space-x-2">
+        <div class="mt-3 flex items-end gap-4">
+          <div class="min-w-0 flex-1">
+            <.label for="mcp-token-input">Token</.label>
             <input
-              id="session-token-input"
+              id="mcp-token-input"
               type="text"
-              value={@session_token}
+              value={@mcp_token}
               readonly
-              class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6 font-mono"
+              class={[input_class(), "font-mono"]}
             />
-            <button
-              type="button"
-              phx-click={
-                JS.dispatch("phx:copy", to: "#session-token-input")
-                |> JS.dispatch("phx:copied", to: "#session-token-input")
-              }
-              class="rounded-md bg-white px-2.5 py-1.5 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
-            >
-              Copy
-            </button>
           </div>
-          <p class="mt-2 text-sm text-gray-500">
-            Keep this token secure. It provides full access to your FaultyTower account via the MCP API.
-          </p>
+          <button
+            type="button"
+            phx-click={
+              JS.dispatch("phx:copy", to: "#mcp-token-input")
+              |> JS.dispatch("phx:copied", to: "#mcp-token-input")
+            }
+            class="shrink-0 pb-2 text-sm text-zinc-500 underline decoration-zinc-300 underline-offset-4 hover:text-zinc-900"
+          >
+            Copy
+          </button>
+          <button
+            type="button"
+            phx-click="regenerate_token"
+            data-confirm="Are you sure? Your existing MCP integrations will need to be reconfigured with the new token."
+            class="shrink-0 pb-2 text-sm text-zinc-500 underline decoration-zinc-300 underline-offset-4 hover:text-zinc-900"
+          >
+            Regenerate
+          </button>
         </div>
+        <p class="mt-2 text-sm text-zinc-500">
+          Keep this token secure. It provides full access to your FaultyTower account via the MCP API. This token does not expire.
+        </p>
       </div>
-    </div>
+    </.sheet>
     """
   end
 
@@ -117,7 +124,7 @@ defmodule FaultyTowerWeb.UserSettingsLive do
     {:ok, push_navigate(socket, to: ~p"/users/settings")}
   end
 
-  def mount(_params, %{"user_token" => user_token} = _session, socket) do
+  def mount(_params, _session, socket) do
     user = socket.assigns.current_user
     email_changeset = Authentication.change_user_email(user)
     password_changeset = Authentication.change_user_password(user)
@@ -130,7 +137,7 @@ defmodule FaultyTowerWeb.UserSettingsLive do
       |> assign(:email_form, to_form(email_changeset))
       |> assign(:password_form, to_form(password_changeset))
       |> assign(:trigger_submit, false)
-      |> assign(:session_token, Base.encode64(user_token))
+      |> assign(:mcp_token, user.mcp_token)
 
     {:ok, socket}
   end
@@ -195,5 +202,17 @@ defmodule FaultyTowerWeb.UserSettingsLive do
       {:error, changeset} ->
         {:noreply, assign(socket, password_form: to_form(changeset))}
     end
+  end
+
+  def handle_event("regenerate_token", _params, socket) do
+    user = socket.assigns.current_user
+    updated_user = Authentication.regenerate_mcp_token(user)
+
+    socket =
+      socket
+      |> assign(:mcp_token, updated_user.mcp_token)
+      |> put_flash(:info, "MCP token regenerated successfully.")
+
+    {:noreply, socket}
   end
 end

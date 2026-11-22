@@ -1,5 +1,11 @@
 import Config
 
+if forgejo_url = System.get_env("FORGEJO_URL") do
+  config :faulty_tower, :forgejo,
+    instance_url: forgejo_url,
+    access_token: System.get_env("FORGEJO_ACCESS_TOKEN")
+end
+
 if System.get_env("PHX_SERVER") do
   config :faulty_tower, FaultyTowerWeb.Endpoint, server: true
 end

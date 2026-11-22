@@ -55,9 +55,8 @@ defmodule FaultyTower.MCPTools.GetErrorDetails do
             "last_occurrence" => error.last_occurrence_at,
             "github_issue_url" => error.gh_issue,
             "project" => %{
-              "id" => error.project.id,
+              "project_id" => error.project.key,
               "name" => error.project.name,
-              "key" => error.project.key,
               "otp_app" => error.project.otp_app
             }
           },
