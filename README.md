@@ -1,5 +1,9 @@
 # FaultyTower
 
+**THIS PROJECT HAS BEEN MOVED TO [pushin.eu](https://pushin.eu/hermanverschooten/faulty_tower)**
+
+---
+
 This is the companion website to the [Faulty](https://hexdocs.pm/faulty/readme.html) error tracking Hex package.
 
 It allows you to create users, organizations and projects within these organizations.
