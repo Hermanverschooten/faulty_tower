@@ -23,6 +23,7 @@ config :logger, level: :info
 config :faulty_tower, run_migrations: true
 
 if trusted_proxies = System.get_env("TRUSTED_PROXIES") do
-  config :faulty_tower, :trusted_proxies,
-    String.split(trusted_proxies, ",") |> Enum.map(&String.trim/1)
+  config :faulty_tower,
+         :trusted_proxies,
+         String.split(trusted_proxies, ",") |> Enum.map(&String.trim/1)
 end

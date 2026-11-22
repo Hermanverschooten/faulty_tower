@@ -11,6 +11,10 @@ Notification will be sent by e-mail or via Ntfy if configured.
 
 A notification will be sent once for any new error within a 6-hour timeframe.
 
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for a record of notable changes.
+
 ## Environment variables
 
 | Variable | Explanation |
